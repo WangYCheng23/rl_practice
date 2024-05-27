@@ -1,11 +1,12 @@
 '''
 Author: WANG CHENG
 Date: 2024-05-27 16:40:38
-LastEditTime: 2024-05-27 16:46:31
+LastEditTime: 2024-05-27 17:22:08
 '''
+import os
 import numpy as np
-import gym
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
 import pybullet as p
 import pybullet_data
 
@@ -23,7 +24,8 @@ class MaplessNavEnv(gym.Env):
         # 定义状态空间
         self.observation_space = spaces.Box(
             low=np.array([0., 0.]),
-            high=np.array([100., np.pi])
+            high=np.array([100., np.pi]),
+            dtype=np.float64
         )
 
         # 连接引擎
@@ -35,13 +37,14 @@ class MaplessNavEnv(gym.Env):
         # 计数器
         self.step_num = 0
 
-    def reset(self):
+    def reset(self, seed=0):
         p.resetSimulation(physicsClientId=self._physics_client_id)
         p.setGravity(0, 0, -9.8)
-        self.robot = p.loadURDF("./miniBox.urdf", basePosition=[0., 0., 0.2], physicsClientId=self._physics_client_id)
+        self.robot = p.loadURDF(os.path.join(os.path.dirname(os.path.abspath(__file__)),"miniBox.urdf"), basePosition=[0., 0., 0.2], physicsClientId=self._physics_client_id)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.plane = p.loadURDF("plane.urdf", physicsClientId=self._physics_client_id)
-        return self.__get_observation()
+        info = {}
+        return self.__get_observation(), info
     
     def step(self, action):
         self.__apply_action(action)
@@ -53,8 +56,9 @@ class MaplessNavEnv(gym.Env):
             done = True
         else:
             done = False
+        truncated = False
         info = {}
-        return state, reward, done, info
+        return state, reward, done, truncated, info
     
     def seed(self, seed=None):
         self.np_random, seed = gym.utils.seeding.np_random(seed)
