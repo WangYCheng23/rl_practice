@@ -3,11 +3,10 @@ import concurrent.futures
 import enum
 import os
 import platform
-import subprocess
 import json
 import time
 from itertools import chain
-from typing import Awaitable, Optional, List, Dict, Set
+from typing import Awaitable, Optional, List, Dict
 from dataclasses import dataclass
 
 import aioboto3
@@ -28,8 +27,6 @@ from ray_release.util import (
     get_write_state_machine_aws_bucket,
 )
 
-MICROCHECK_COMMAND = "@microcheck"
-
 AWS_TEST_KEY = "ray_tests"
 AWS_TEST_RESULT_KEY = "ray_test_results"
 DEFAULT_PYTHON_VERSION = tuple(
@@ -38,12 +35,12 @@ DEFAULT_PYTHON_VERSION = tuple(
 DATAPLANE_ECR_REPO = "anyscale/ray"
 DATAPLANE_ECR_ML_REPO = "anyscale/ray-ml"
 
-MACOS_TEST_PREFIX = "darwin:"
-LINUX_TEST_PREFIX = "linux:"
-WINDOWS_TEST_PREFIX = "windows:"
+MACOS_TEST_PREFIX = "darwin://"
+LINUX_TEST_PREFIX = "linux://"
+WINDOWS_TEST_PREFIX = "windows://"
 MACOS_BISECT_DAILY_RATE_LIMIT = 3
-LINUX_BISECT_DAILY_RATE_LIMIT = 3
-WINDOWS_BISECT_DAILY_RATE_LIMIT = 3
+LINUX_BISECT_DAILY_RATE_LIMIT = 0  # linux bisect is disabled
+WINDOWS_BISECT_DAILY_RATE_LIMIT = 0  # windows bisect is disabled
 BISECT_DAILY_RATE_LIMIT = 10
 
 _asyncio_thread_pool = concurrent.futures.ThreadPoolExecutor()
@@ -198,147 +195,21 @@ class Test(dict):
         ]
 
     @classmethod
-    def gen_microcheck_step_ids(cls, prefix: str, bazel_workspace_dir: str) -> Set[str]:
+    def gen_high_impact_tests(cls, prefix: str) -> Dict[str, List]:
         """
-        This function is used to get the buildkite step ids of the microcheck tests
-        with the given test prefix. This is used to determine the buildkite steps in
-        the microcheck pipeline.
-        """
-        step_ids = set()
-        test_targets = cls.gen_microcheck_tests(prefix, bazel_workspace_dir)
-        for test_target in test_targets:
-            test = cls.gen_from_name(f"{prefix}{test_target}")
-            if not test:
-                continue
-            recent_results = test.get_test_results()
-            if not recent_results:
-                continue
-            test_step_ids = {
-                result.rayci_step_id
-                for result in recent_results
-                if result.commit == recent_results[0].commit and result.rayci_step_id
-            }
-            if test_step_ids and not step_ids.intersection(test_step_ids):
-                step_ids.add(sorted(test_step_ids)[0])
-
-        return step_ids
-
-    @classmethod
-    def gen_microcheck_tests(
-        cls, prefix: str, bazel_workspace_dir: str, team: Optional[str] = None
-    ) -> Set[str]:
-        """
-        Obtain all microcheck tests with the given prefix
-        """
-        high_impact_tests = Test._gen_high_impact_tests(prefix, team)
-        changed_tests = Test._get_changed_tests(bazel_workspace_dir)
-        human_specified_tests = Test._get_human_specified_tests(bazel_workspace_dir)
-
-        return high_impact_tests.union(changed_tests, human_specified_tests)
-
-    @classmethod
-    def _gen_high_impact_tests(
-        cls, prefix: str, team: Optional[str] = None
-    ) -> Set[str]:
-        """
-        Obtain all high impact tests with the given prefix
+        Obtain the mapping from rayci step id to high impact tests with the given prefix
         """
         high_impact_tests = [
             test for test in cls.gen_from_s3(prefix) if test.is_high_impact()
         ]
-        if team:
-            high_impact_tests = [
-                test for test in high_impact_tests if test.get_oncall() == team
-            ]
-
-        return {test.get_target() for test in high_impact_tests}
-
-    @classmethod
-    def _get_human_specified_tests(cls, bazel_workspace_dir: str) -> Set[str]:
-        """
-        Get all test targets that are specified by humans
-        """
-        base = os.environ.get("BUILDKITE_PULL_REQUEST_BASE_BRANCH")
-        head = os.environ.get("BUILDKITE_COMMIT")
-        if not base or not head:
-            # if not in a PR, return an empty set
-            return set()
-
-        tests = set()
-        messages = subprocess.check_output(
-            ["git", "rev-list", "--format=%b", f"origin/{base}...{head}"],
-            cwd=bazel_workspace_dir,
-        )
-        for message in messages.decode().splitlines():
-            if not message.startswith(MICROCHECK_COMMAND):
+        step_id_to_tests = {}
+        for test in high_impact_tests:
+            step_id = test.get_test_results(limit=1)[0].rayci_step_id
+            if not step_id:
                 continue
-            tests = tests.union(message[len(MICROCHECK_COMMAND) :].strip().split(" "))
+            step_id_to_tests[step_id] = step_id_to_tests.get(step_id, []) + [test]
 
-        return tests
-
-    @classmethod
-    def _get_changed_tests(cls, bazel_workspace_dir: str) -> Set[str]:
-        """
-        Get all changed tests in the current PR
-        """
-        return set(
-            chain.from_iterable(
-                [
-                    cls._get_test_targets_per_file(file, bazel_workspace_dir)
-                    for file in cls._get_changed_files(bazel_workspace_dir)
-                ]
-            )
-        )
-
-    @classmethod
-    def _get_changed_files(cls, bazel_workspace_dir: str) -> Set[str]:
-        """
-        Get all changed files in the current PR
-        """
-        base = os.environ.get("BUILDKITE_PULL_REQUEST_BASE_BRANCH")
-        head = os.environ.get("BUILDKITE_COMMIT")
-        if not base or not head:
-            # if not in a PR, return an empty set
-            return set()
-
-        changes = subprocess.check_output(
-            ["git", "diff", "--name-only", f"origin/{base}...{head}"],
-            cwd=bazel_workspace_dir,
-        )
-        return {
-            file.strip() for file in changes.decode().splitlines() if file is not None
-        }
-
-    @classmethod
-    def _get_test_targets_per_file(
-        cls, file: str, bazel_workspace_dir: str
-    ) -> Set[str]:
-        """
-        Get the test target from a file path
-        """
-        try:
-            package = (
-                subprocess.check_output(
-                    ["bazel", "query", file], cwd=bazel_workspace_dir
-                )
-                .decode()
-                .strip()
-            )
-            if not package:
-                return set()
-            targets = subprocess.check_output(
-                ["bazel", "query", f"tests(attr('srcs', {package}, //...))"],
-                cwd=bazel_workspace_dir,
-            )
-            targets = {
-                target.strip()
-                for target in targets.decode().splitlines()
-                if target is not None
-            }
-
-            return targets
-        except subprocess.CalledProcessError:
-            return set()
+        return step_id_to_tests
 
     def is_jailed_with_open_issue(self, ray_github: Repository) -> bool:
         """

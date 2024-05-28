@@ -1,15 +1,8 @@
 import click
-import os
 
 from ci.ray_ci.utils import ci_init
-from ray_release.test import (
-    Test,
-    LINUX_TEST_PREFIX,
-    WINDOWS_TEST_PREFIX,
-    MACOS_TEST_PREFIX,
-)
-
-BAZEL_WORKSPACE_DIR = os.environ.get("BUILD_WORKSPACE_DIRECTORY", "")
+from ci.ray_ci.automation.determine_microcheck_tests import LINUX_TEST_PREFIX
+from ray_release.test import Test
 
 
 @click.command()
@@ -18,13 +11,7 @@ def main() -> None:
     This script determines the rayci step ids to run microcheck tests.
     """
     ci_init()
-    steps = (
-        Test.gen_microcheck_step_ids(LINUX_TEST_PREFIX, BAZEL_WORKSPACE_DIR)
-        .union(Test.gen_microcheck_step_ids(WINDOWS_TEST_PREFIX, BAZEL_WORKSPACE_DIR))
-        .union(Test.gen_microcheck_step_ids(MACOS_TEST_PREFIX, BAZEL_WORKSPACE_DIR))
-    )
-
-    print(",".join(steps))
+    print(",".join(Test.gen_high_impact_tests(LINUX_TEST_PREFIX).keys()))
 
 
 if __name__ == "__main__":

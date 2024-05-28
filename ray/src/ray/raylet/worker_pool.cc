@@ -183,8 +183,7 @@ void WorkerPool::SetRuntimeEnvAgentClient(
   runtime_env_agent_client_ = runtime_env_agent_client;
 }
 
-void WorkerPool::PopWorkerCallbackAsync(const TaskSpecification &task_spec,
-                                        const PopWorkerCallback &callback,
+void WorkerPool::PopWorkerCallbackAsync(const PopWorkerCallback &callback,
                                         std::shared_ptr<WorkerInterface> worker,
                                         PopWorkerStatus status) {
   // This method shouldn't be invoked when runtime env creation has failed because
@@ -193,34 +192,17 @@ void WorkerPool::PopWorkerCallbackAsync(const TaskSpecification &task_spec,
   RAY_CHECK(status != PopWorkerStatus::RuntimeEnvCreationFailed);
   // Call back this function asynchronously to make sure executed in different stack.
   io_service_->post(
-      [this, task_spec, callback, worker, status]() {
-        PopWorkerCallbackInternal(task_spec, callback, worker, status);
+      [this, callback, worker, status]() {
+        PopWorkerCallbackInternal(callback, worker, status);
       },
       "WorkerPool.PopWorkerCallback");
 }
 
-void WorkerPool::PopWorkerCallbackInternal(const TaskSpecification &task_spec,
-                                           const PopWorkerCallback &callback,
+void WorkerPool::PopWorkerCallbackInternal(const PopWorkerCallback &callback,
                                            std::shared_ptr<WorkerInterface> worker,
                                            PopWorkerStatus status) {
   RAY_CHECK(callback);
-  auto used = false;
-  if (worker && finished_jobs_.contains(task_spec.JobId()) &&
-      task_spec.RootDetachedActorId().IsNil()) {
-    // When a job finishes, node manager will kill leased workers one time
-    // and worker pool will kill idle workers periodically.
-    // The current worker is already removed from the idle workers
-    // but hasn't been added to the leased workers since the callback is not called yet.
-    // We shouldn't add this worker to the leased workers since killing leased workers
-    // for this finished job may already happen and won't happen again (this is one time)
-    // so it will cause a process leak.
-    // Instead we fail the PopWorker and add the worker back to the idle workers so it can
-    // be killed later.
-    RAY_CHECK(status == PopWorkerStatus::OK);
-    callback(nullptr, PopWorkerStatus::JobFinished, "");
-  } else {
-    used = callback(worker, status, /*runtime_env_setup_error_message*/ "");
-  }
+  auto used = callback(worker, status, /*runtime_env_setup_error_message*/ "");
   if (worker && !used) {
     // The invalid worker not used, restore it to worker pool.
     PushWorker(worker);
@@ -356,18 +338,20 @@ WorkerPool::BuildProcessCommandArgs(const Language &language,
     worker_command_args.push_back("--worker-launch-time-ms=" +
                                   std::to_string(current_sys_time_ms()));
     worker_command_args.push_back("--node-id=" + node_id_.Hex());
-    // TODO(jjyao) This should be renamed to worker cache key hash
-    worker_command_args.push_back("--runtime-env-hash=" +
-                                  std::to_string(runtime_env_hash));
   } else if (language == Language::CPP) {
     worker_command_args.push_back("--startup_token=" +
                                   std::to_string(worker_startup_token_counter_));
-    worker_command_args.push_back("--ray_runtime_env_hash=" +
-                                  std::to_string(runtime_env_hash));
   }
 
   if (serialized_runtime_env_context != "{}" && !serialized_runtime_env_context.empty()) {
     worker_command_args.push_back("--language=" + Language_Name(language));
+    if (language == Language::CPP) {
+      worker_command_args.push_back("--ray_runtime_env_hash=" +
+                                    std::to_string(runtime_env_hash));
+    } else {
+      worker_command_args.push_back("--runtime-env-hash=" +
+                                    std::to_string(runtime_env_hash));
+    }
     worker_command_args.push_back("--serialized-runtime-env-context=" +
                                   serialized_runtime_env_context);
   } else if (language == Language::PYTHON && worker_command_args.size() >= 2 &&
@@ -577,12 +561,14 @@ void WorkerPool::MonitorStartingWorkerProcess(const Process &proc,
       process_failed_pending_registration_++;
       bool found;
       bool used;
+      TaskID task_id;
       InvokePopWorkerCallbackForProcess(state.starting_workers_to_tasks,
                                         proc_startup_token,
                                         nullptr,
                                         status,
                                         &found,
-                                        &used);
+                                        &used,
+                                        &task_id);
       DeleteRuntimeEnvIfPossible(it->second.runtime_env_info.serialized_runtime_env());
       RemoveWorkerProcess(state, proc_startup_token);
       if (IsIOWorkerType(worker_type)) {
@@ -986,29 +972,21 @@ void WorkerPool::InvokePopWorkerCallbackForProcess(
     const std::shared_ptr<WorkerInterface> &worker,
     const PopWorkerStatus &status,
     bool *found,
-    bool *worker_used) {
+    bool *worker_used,
+    TaskID *task_id) {
   *found = false;
   *worker_used = false;
   auto it = starting_workers_to_tasks.find(startup_token);
   if (it != starting_workers_to_tasks.end()) {
     *found = true;
+    *task_id = it->second.task_id;
     const auto &callback = it->second.callback;
     RAY_CHECK(callback);
     // This method shouldn't be invoked when runtime env creation has failed because
     // when runtime env is failed to be created, they are all
     // invoking the callback immediately.
     RAY_CHECK(status != PopWorkerStatus::RuntimeEnvCreationFailed);
-    if (worker && finished_jobs_.contains(it->second.task_spec.JobId()) &&
-        it->second.task_spec.RootDetachedActorId().IsNil()) {
-      // If the job has finished, we should fail the PopWorker callback
-      // and add the worker back to the idle workers so it can be killed later.
-      // This doesn't apply to detached actor and its descendants
-      // since they can outlive the job.
-      RAY_CHECK(status == PopWorkerStatus::OK);
-      callback(nullptr, PopWorkerStatus::JobFinished, "");
-    } else {
-      *worker_used = callback(worker, status, /*runtime_env_setup_error_message*/ "");
-    }
+    *worker_used = callback(worker, status, /*runtime_env_setup_error_message*/ "");
     starting_workers_to_tasks.erase(it);
   }
 }
@@ -1020,12 +998,14 @@ void WorkerPool::PushWorker(const std::shared_ptr<WorkerInterface> &worker) {
   auto &state = GetStateForLanguage(worker->GetLanguage());
   bool found;
   bool used;
+  TaskID task_id;
   InvokePopWorkerCallbackForProcess(state.starting_workers_to_tasks,
                                     worker->GetStartupToken(),
                                     worker,
                                     PopWorkerStatus::OK,
                                     &found,
-                                    &used);
+                                    &used,
+                                    &task_id);
   RAY_LOG(DEBUG) << "PushWorker " << worker->WorkerId() << " used: " << used;
   if (!used) {
     // Put the worker to the idle pool.
@@ -1122,7 +1102,8 @@ void WorkerPool::KillIdleWorker(std::shared_ptr<WorkerInterface> idle_worker,
   RAY_CHECK(rpc_client);
   rpc::ExitRequest request;
   const auto &job_id = idle_worker->GetAssignedJobId();
-  if (finished_jobs_.contains(job_id) && idle_worker->GetRootDetachedActorId().IsNil()) {
+  if (finished_jobs_.contains(job_id) &&
+      RayConfig::instance().kill_idle_workers_of_terminated_job()) {
     RAY_LOG(INFO) << "Force exiting worker whose job has exited "
                   << idle_worker->WorkerId();
     request.set_force_exit(true);
@@ -1189,7 +1170,7 @@ void WorkerPool::PopWorker(const TaskSpecification &task_spec,
     if (status == PopWorkerStatus::OK) {
       RAY_CHECK(proc.IsValid());
       WarnAboutSize();
-      auto task_info = TaskWaitingForWorkerInfo{task_spec, callback};
+      auto task_info = TaskWaitingForWorkerInfo{task_spec.TaskId(), callback};
       state.starting_workers_to_tasks[startup_token] = std::move(task_info);
     } else if (status == PopWorkerStatus::TooManyStartingWorkerProcesses) {
       // TODO(jjyao) As an optimization, we don't need to delete the runtime env
@@ -1199,7 +1180,7 @@ void WorkerPool::PopWorker(const TaskSpecification &task_spec,
           PopWorkerRequest{task_spec, callback, allocated_instances_serialized_json});
     } else {
       DeleteRuntimeEnvIfPossible(task_spec.SerializedRuntimeEnv());
-      PopWorkerCallbackAsync(task_spec, callback, nullptr, status);
+      PopWorkerCallbackAsync(callback, nullptr, status);
     }
   };
 
@@ -1316,7 +1297,7 @@ void WorkerPool::PopWorker(const TaskSpecification &task_spec,
     RAY_LOG(DEBUG) << "Re-using worker " << worker->WorkerId() << " for task "
                    << task_spec.DebugString();
     stats::NumWorkersStartedFromCache.Record(1);
-    PopWorkerCallbackAsync(task_spec, callback, worker);
+    PopWorkerCallbackAsync(callback, worker);
   }
 }
 
@@ -1360,8 +1341,7 @@ void WorkerPool::PrestartDefaultCpuWorkers(ray::Language language, int64_t num_n
   static const WorkerCacheKey kDefaultCpuWorkerCacheKey{/*serialized_runtime_env*/ "",
                                                         {{"CPU", 1}},
                                                         /*is_actor*/ false,
-                                                        /*is_gpu*/ false,
-                                                        /*is_root_detached_actor*/ false};
+                                                        /*is_gpu*/ false};
   RAY_LOG(DEBUG) << "PrestartDefaultCpuWorkers " << num_needed;
   for (int i = 0; i < num_needed; i++) {
     PopWorkerStatus status;

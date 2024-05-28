@@ -4,11 +4,6 @@ import unittest
 
 import ray
 from ray.rllib.algorithms.dqn import DQNConfig
-from ray.rllib.utils.metrics import (
-    EPISODE_RETURN_MAX,
-    EPISODE_RETURN_MIN,
-    ENV_RUNNER_RESULTS,
-)
 from ray.rllib.utils.test_utils import framework_iterator
 from ray.tune.registry import register_env
 
@@ -53,8 +48,8 @@ class TestReproducibility(unittest.TestCase):
                 trajectory = list()
                 for _ in range(8):
                     r = algo.train()
-                    trajectory.append(r[ENV_RUNNER_RESULTS][EPISODE_RETURN_MAX])
-                    trajectory.append(r[ENV_RUNNER_RESULTS][EPISODE_RETURN_MIN])
+                    trajectory.append(r["episode_reward_max"])
+                    trajectory.append(r["episode_reward_min"])
                 trajs.append(trajectory)
 
                 algo.stop()

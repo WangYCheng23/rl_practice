@@ -1,9 +1,4 @@
 from ray.rllib.algorithms.ppo.ppo import PPOConfig
-from ray.rllib.utils.metrics import (
-    ENV_RUNNER_RESULTS,
-    EPISODE_RETURN_MEAN,
-    NUM_ENV_STEPS_SAMPLED_LIFETIME,
-)
 from ray.tune import Stopper
 from ray import train, tune
 
@@ -22,32 +17,32 @@ from ray import train, tune
 #   AgileRL: https://github.com/AgileRL/AgileRL?tab=readme-ov-file#benchmarks
 benchmark_envs = {
     "HalfCheetah-v4": {
-        f"{ENV_RUNNER_RESULTS}/{EPISODE_RETURN_MEAN}": 2000,
-        f"{NUM_ENV_STEPS_SAMPLED_LIFETIME}": 1000000,
+        "sampler_results/episode_reward_mean": 2000,
+        "timesteps_total": 1000000,
     },
     "Hopper-v4": {
-        f"{ENV_RUNNER_RESULTS}/{EPISODE_RETURN_MEAN}": 2250,
-        f"{NUM_ENV_STEPS_SAMPLED_LIFETIME}": 1000000,
+        "sampler_results/episode_reward_mean": 2250,
+        "timesteps_total": 1000000,
     },
     "InvertedPendulum-v4": {
-        f"{ENV_RUNNER_RESULTS}/{EPISODE_RETURN_MEAN}": 1000,
-        f"{NUM_ENV_STEPS_SAMPLED_LIFETIME}": 1000000,
+        "sampler_results/episode_reward_mean": 1000,
+        "timesteps_total": 1000000,
     },
     "InvertedDoublePendulum-v4": {
-        f"{ENV_RUNNER_RESULTS}/{EPISODE_RETURN_MEAN}": 8000,
-        f"{NUM_ENV_STEPS_SAMPLED_LIFETIME}": 1000000,
+        "sampler_results/episode_reward_mean": 8000,
+        "timesteps_total": 1000000,
     },
     "Reacher-v4": {
-        f"{ENV_RUNNER_RESULTS}/{EPISODE_RETURN_MEAN}": -15,
-        f"{NUM_ENV_STEPS_SAMPLED_LIFETIME}": 1000000,
+        "sampler_results/episode_reward_mean": -15,
+        "timesteps_total": 1000000,
     },
     "Swimmer-v4": {
-        f"{ENV_RUNNER_RESULTS}/{EPISODE_RETURN_MEAN}": 120,
-        f"{NUM_ENV_STEPS_SAMPLED_LIFETIME}": 1000000,
+        "sampler_results/episode_reward_mean": 120,
+        "timesteps_total": 1000000,
     },
     "Walker2d-v4": {
-        f"{ENV_RUNNER_RESULTS}/{EPISODE_RETURN_MEAN}": 3500,
-        f"{NUM_ENV_STEPS_SAMPLED_LIFETIME}": 1000000,
+        "sampler_results/episode_reward_mean": 3500,
+        "timesteps_total": 1000000,
     },
 }
 
@@ -61,16 +56,14 @@ class BenchmarkStopper(Stopper):
     def __call__(self, trial_id, result):
         # Stop training if the mean reward is reached.
         if (
-            result[ENV_RUNNER_RESULTS][EPISODE_RETURN_MEAN]
-            >= self.benchmark_envs[result["env"]][
-                f"{ENV_RUNNER_RESULTS}/{EPISODE_RETURN_MEAN}"
-            ]
+            result["sampler_results"]["episode_reward_mean"]
+            >= self.benchmark_envs[result["env"]]["sampler_results/episode_reward_mean"]
         ):
             return True
         # Otherwise check, if the total number of timesteps is exceeded.
         elif (
-            result[f"{NUM_ENV_STEPS_SAMPLED_LIFETIME}"]
-            >= self.benchmark_envs[result["env"]][f"{NUM_ENV_STEPS_SAMPLED_LIFETIME}"]
+            result["timesteps_total"]
+            >= self.benchmark_envs[result["env"]]["timesteps_total"]
         ):
             return True
         # Otherwise continue training.
@@ -95,11 +88,11 @@ config = (
         num_env_runners=32,
         rollout_fragment_length=512,
     )
-    .learners(
+    .resources(
         # Let's start with a small number of learner workers and
         # add later a tune grid search for these resources.
-        num_learners=1,
-        num_gpus_per_learner=1,
+        num_learner_workers=1,
+        num_gpus_per_learner_worker=1,
     )
     # TODO (simon): Adjust to new model_config_dict.
     .training(

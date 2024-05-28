@@ -31,16 +31,10 @@ import os
 
 import ray
 from ray import air, tune
-from ray.air.constants import TRAINING_ITERATION
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.examples.envs.classes.windy_maze_env import (
     WindyMazeEnv,
     HierarchicalWindyMazeEnv,
-)
-from ray.rllib.utils.metrics import (
-    ENV_RUNNER_RESULTS,
-    EPISODE_RETURN_MEAN,
-    NUM_ENV_STEPS_SAMPLED_LIFETIME,
 )
 from ray.rllib.utils.test_utils import check_learning_achieved
 
@@ -80,9 +74,9 @@ if __name__ == "__main__":
     ray.init(local_mode=args.local_mode)
 
     stop = {
-        TRAINING_ITERATION: args.stop_iters,
-        NUM_ENV_STEPS_SAMPLED_LIFETIME: args.stop_timesteps,
-        f"{ENV_RUNNER_RESULTS}/{EPISODE_RETURN_MEAN}": args.stop_reward,
+        "training_iteration": args.stop_iters,
+        "num_env_steps_sampled_lifetime": args.stop_timesteps,
+        "env_runner_results/episode_return_mean": args.stop_reward,
     }
 
     if args.flat:

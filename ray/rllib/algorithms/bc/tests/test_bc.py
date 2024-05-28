@@ -4,10 +4,6 @@ import unittest
 
 import ray
 import ray.rllib.algorithms.bc as bc
-from ray.rllib.utils.metrics import (
-    ENV_RUNNER_RESULTS,
-    EPISODE_RETURN_MEAN,
-)
 from ray.rllib.utils.test_utils import (
     check_compute_single_action,
     check_train_results,
@@ -81,19 +77,11 @@ class TestBC(unittest.TestCase):
                         if eval_results:
                             print(
                                 "iter={} R={}".format(
-                                    i,
-                                    eval_results[
-                                        f"{ENV_RUNNER_RESULTS}/{EPISODE_RETURN_MEAN}"
-                                    ],
+                                    i, eval_results["episode_reward_mean"]
                                 )
                             )
                             # Learn until good reward is reached in the actual env.
-                            if (
-                                eval_results[
-                                    f"{ENV_RUNNER_RESULTS}/{EPISODE_RETURN_MEAN}"
-                                ]
-                                > min_reward
-                            ):
+                            if eval_results["episode_reward_mean"] > min_reward:
                                 print("learnt!")
                                 learnt = True
                                 break

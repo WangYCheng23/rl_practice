@@ -46,7 +46,7 @@ Enabling Learner API in RLlib experiments
 =========================================
 
 Adjust the amount of resources for training using the 
-`num_gpus_per_learner`, `num_cpus_per_learner`, and `num_learners`
+`num_gpus_per_learner_worker`, `num_cpus_per_learner_worker`, and `num_learner_workers`
 arguments in the :py:class:`~ray.rllib.algorithms.algorithm_config.AlgorithmConfig`.
 
 .. testcode::
@@ -59,10 +59,11 @@ arguments in the :py:class:`~ray.rllib.algorithms.algorithm_config.AlgorithmConf
     config = (
         PPOConfig()
         .api_stack(enable_rl_module_and_learner=True)
-        .learners(
-            num_learners=0,  # Set this to greater than 1 to allow for DDP style updates.
-            num_gpus_per_learner=0,  # Set this to 1 to enable GPU training.
-            num_cpus_per_learner=1,
+        .resources(
+            num_gpus_per_learner_worker=0,  # Set this to 1 to enable GPU training.
+            num_cpus_per_learner_worker=1,
+            num_learner_workers=0  # Set this to greater than 1 to allow for DDP style
+                               # updates.
         )
     )
 
@@ -135,7 +136,7 @@ and :py:class:`~ray.rllib.core.learner.learner.Learner` APIs via the :py:class:`
                 # Number of Learner workers (ray actors).
                 # Use 0 for no actors, only create a local Learner.
                 # Use >=1 to create n DDP-style Learner workers (ray actors).
-                .learners(num_learners=1)
+                .resources(num_learner_workers=1)
                 # Specify the learner's hyperparameters.
                 .training(
                     use_kl_loss=True,

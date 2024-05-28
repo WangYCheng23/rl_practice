@@ -172,16 +172,12 @@ class TaskSpecBuilder {
       int max_retries,
       bool retry_exceptions,
       const std::string &serialized_retry_exception_allowlist,
-      const rpc::SchedulingStrategy &scheduling_strategy,
-      const ActorID root_detached_actor_id) {
+      const rpc::SchedulingStrategy &scheduling_strategy) {
     message_->set_max_retries(max_retries);
     message_->set_retry_exceptions(retry_exceptions);
     message_->set_serialized_retry_exception_allowlist(
         serialized_retry_exception_allowlist);
     message_->mutable_scheduling_strategy()->CopyFrom(scheduling_strategy);
-    if (!root_detached_actor_id.IsNil()) {
-      message_->set_root_detached_actor_id(root_detached_actor_id.Binary());
-    }
     return *this;
   }
 
@@ -234,8 +230,7 @@ class TaskSpecBuilder {
       bool is_asyncio = false,
       const std::vector<ConcurrencyGroup> &concurrency_groups = {},
       const std::string &extension_data = "",
-      bool execute_out_of_order = false,
-      ActorID root_detached_actor_id = ActorID::Nil()) {
+      bool execute_out_of_order = false) {
     message_->set_type(TaskType::ACTOR_CREATION_TASK);
     auto actor_creation_spec = message_->mutable_actor_creation_task_spec();
     actor_creation_spec->set_actor_id(actor_id.Binary());
@@ -263,9 +258,6 @@ class TaskSpecBuilder {
     }
     actor_creation_spec->set_execute_out_of_order(execute_out_of_order);
     message_->mutable_scheduling_strategy()->CopyFrom(scheduling_strategy);
-    if (!root_detached_actor_id.IsNil()) {
-      message_->set_root_detached_actor_id(root_detached_actor_id.Binary());
-    }
     return *this;
   }
 

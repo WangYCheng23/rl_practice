@@ -41,7 +41,7 @@ make(
 )
 
 genrule_cmd = select({
-    "@platforms//os:osx": """
+    "@bazel_tools//src/conditions:darwin": """
         unset CC LDFLAGS CXX CXXFLAGS
         tmpdir="redis.tmp"
         p=$(location Makefile)
@@ -62,7 +62,7 @@ genrule_cmd = select({
 })
 
 genrule_srcs = select({
-    "@platforms//os:osx": glob(["**"]),
+    "@bazel_tools//src/conditions:darwin": glob(["**"]),
     "//conditions:default": [":redis"],
 })
 

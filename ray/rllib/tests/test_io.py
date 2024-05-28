@@ -25,12 +25,6 @@ from ray.rllib.offline import (
 from ray.rllib.offline.json_reader import from_json_data
 from ray.rllib.offline.json_writer import _to_json_dict, _to_json
 from ray.rllib.policy.sample_batch import SampleBatch, convert_ma_batch_to_sample_batch
-from ray.rllib.utils.metrics import (
-    ENV_RUNNER_RESULTS,
-    EPISODE_RETURN_MEAN,
-    EVALUATION_RESULTS,
-    NUM_ENV_STEPS_SAMPLED_LIFETIME,
-)
 from ray.rllib.utils.test_utils import framework_iterator
 
 SAMPLES = SampleBatch(
@@ -115,10 +109,8 @@ class AgentIOTest(unittest.TestCase):
             print("WROTE TO: ", self.test_dir)
             algo = config.build()
             result = algo.train()
-            self.assertEqual(
-                result[f"{NUM_ENV_STEPS_SAMPLED_LIFETIME}"], 250
-            )  # read from input
-            self.assertTrue(np.isnan(result[ENV_RUNNER_RESULTS][EPISODE_RETURN_MEAN]))
+            self.assertEqual(result["timesteps_total"], 250)  # read from input
+            self.assertTrue(np.isnan(result["episode_reward_mean"]))
 
     def test_split_by_episode(self):
         splits = SAMPLES.split_by_episode()
@@ -166,10 +158,8 @@ class AgentIOTest(unittest.TestCase):
 
             algo = config.build()
             result = algo.train()
-            self.assertEqual(
-                result[f"{NUM_ENV_STEPS_SAMPLED_LIFETIME}"], 250
-            )  # read from input
-            self.assertTrue(np.isnan(result[ENV_RUNNER_RESULTS][EPISODE_RETURN_MEAN]))
+            self.assertEqual(result["timesteps_total"], 250)  # read from input
+            self.assertTrue(np.isnan(result["episode_reward_mean"]))
             algo.stop()
 
     def test_agent_input_eval_sampler(self):
@@ -191,10 +181,10 @@ class AgentIOTest(unittest.TestCase):
             algo = config.build()
             result = algo.train()
             assert np.isnan(
-                result[ENV_RUNNER_RESULTS][EPISODE_RETURN_MEAN]
+                result["episode_reward_mean"]
             ), "episode reward should not be computed for offline data"
             assert not np.isnan(
-                result[EVALUATION_RESULTS][ENV_RUNNER_RESULTS][EPISODE_RETURN_MEAN]
+                result["evaluation"]["episode_reward_mean"]
             ), "Did not see simulation results during evaluation"
             algo.stop()
 
@@ -211,10 +201,8 @@ class AgentIOTest(unittest.TestCase):
             config.offline_data(input_=glob.glob(self.test_dir + fw + "/*.json"))
             algo = config.build()
             result = algo.train()
-            self.assertEqual(
-                result[f"{NUM_ENV_STEPS_SAMPLED_LIFETIME}"], 250
-            )  # read from input
-            self.assertTrue(np.isnan(result[ENV_RUNNER_RESULTS][EPISODE_RETURN_MEAN]))
+            self.assertEqual(result["timesteps_total"], 250)  # read from input
+            self.assertTrue(np.isnan(result["episode_reward_mean"]))
             algo.stop()
 
     def test_agent_input_dict(self):
@@ -229,9 +217,7 @@ class AgentIOTest(unittest.TestCase):
             )
             algo = config.build()
             result = algo.train()
-            self.assertTrue(
-                not np.isnan(result[ENV_RUNNER_RESULTS][EPISODE_RETURN_MEAN])
-            )
+            self.assertTrue(not np.isnan(result["episode_reward_mean"]))
             algo.stop()
 
     def test_custom_input_procedure(self):
@@ -263,10 +249,8 @@ class AgentIOTest(unittest.TestCase):
                 config.offline_data(input_config={"input_files": self.test_dir + fw})
                 algo = config.build()
                 result = algo.train()
-                self.assertEqual(result[f"{NUM_ENV_STEPS_SAMPLED_LIFETIME}"], 4000)
-                self.assertTrue(
-                    np.isnan(result[f"{ENV_RUNNER_RESULTS}/{EPISODE_RETURN_MEAN}"])
-                )
+                self.assertEqual(result["timesteps_total"], 4000)
+                self.assertTrue(np.isnan(result["episode_reward_mean"]))
                 algo.stop()
 
     def test_multiple_output_workers(self):

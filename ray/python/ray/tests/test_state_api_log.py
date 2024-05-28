@@ -1031,7 +1031,7 @@ def test_log_job(ray_start_with_dashboard):
 
     def verify():
         logs = "".join(get_log(submission_id=job_id, node_id=node_id))
-        assert JOB_LOG + "\n" in logs
+        assert JOB_LOG + "\n" == logs
 
         return True
 

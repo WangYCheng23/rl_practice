@@ -16,8 +16,11 @@ cc_library(
     ]),
     copts = COPTS,
     linkopts = select({
-        "@platforms//os:windows": [],
-        "//conditions:default": ["-lpthread"],
+        "@bazel_tools//src/conditions:windows": [
+        ],
+        "//conditions:default": [
+            "-lpthread",
+        ],
     }),
     strip_include_prefix = "//src",
     visibility = ["//visibility:public"],

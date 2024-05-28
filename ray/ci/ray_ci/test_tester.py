@@ -13,7 +13,7 @@ from ci.ray_ci.tester import (
     _get_container,
     _get_all_test_query,
     _get_test_targets,
-    _get_new_tests,
+    _get_high_impact_test_targets,
     _get_flaky_test_targets,
     _get_tag_matcher,
 )
@@ -121,11 +121,8 @@ def test_get_test_targets() -> None:
             "ray_release.test.Test.gen_from_s3",
             return_value=test_objects,
         ), mock.patch(
-            "ci.ray_ci.tester._get_new_tests",
-            return_value=set(),
-        ), mock.patch(
-            "ray_release.test.Test.gen_microcheck_tests",
-            return_value={test.get_target() for test in test_objects},
+            "ray_release.test.Test.gen_high_impact_tests",
+            return_value={"step": test_objects},
         ):
             assert set(
                 _get_test_targets(
@@ -207,17 +204,38 @@ def test_get_all_test_query() -> None:
     )
 
 
-@mock.patch("ci.ray_ci.tester_container.TesterContainer.run_script_with_output")
-@mock.patch("ray_release.test.Test.gen_from_s3")
-def test_get_new_tests(mock_gen_from_s3, mock_run_script_with_output) -> None:
-    mock_gen_from_s3.return_value = [
-        _stub_test({"name": "linux://old_test_01"}),
-        _stub_test({"name": "linux://old_test_02"}),
+def test_get_high_impact_test_targets() -> None:
+    test_harness = [
+        {
+            "input": [],
+            "output": set(),
+        },
+        {
+            "input": [
+                _stub_test(
+                    {
+                        "name": "linux://core_good",
+                        "team": "core",
+                    }
+                ),
+                _stub_test(
+                    {
+                        "name": "linux://serve_good",
+                        "team": "serve",
+                    }
+                ),
+            ],
+            "output": {
+                "//core_good",
+            },
+        },
     ]
-    mock_run_script_with_output.return_value = "//old_test_01\n//new_test"
-    assert _get_new_tests(
-        "linux", LinuxTesterContainer("test", skip_ray_installation=True)
-    ) == {"//new_test"}
+    for test in test_harness:
+        with mock.patch(
+            "ray_release.test.Test.gen_high_impact_tests",
+            return_value={"step": test["input"]},
+        ):
+            assert _get_high_impact_test_targets("core", "linux") == test["output"]
 
 
 def test_get_flaky_test_targets() -> None:

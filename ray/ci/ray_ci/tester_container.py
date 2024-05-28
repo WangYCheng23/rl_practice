@@ -16,9 +16,6 @@ from ray_release.test_automation.ci_state_machine import CITestStateMachine
 from ray_release.configs.global_config import get_global_config
 
 
-RUN_PER_FLAKY_TEST = 2
-
-
 class TesterContainer(Container):
     """
     A wrapper for running tests in ray ci docker container
@@ -76,7 +73,6 @@ class TesterContainer(Container):
         test_targets: List[str],
         test_arg: Optional[str] = None,
         is_bisect_run: bool = False,
-        run_flaky_tests: bool = False,
     ) -> bool:
         """
         Run tests parallelly in docker.  Return whether all tests pass.
@@ -100,12 +96,7 @@ class TesterContainer(Container):
         bazel_log_dir_host, bazel_log_dir_container = self._create_bazel_log_mount()
         runs = [
             self._run_tests_in_docker(
-                chunks[i],
-                gpu_ids[i],
-                bazel_log_dir_host,
-                self.test_envs,
-                test_arg,
-                run_flaky_tests,
+                chunks[i], gpu_ids[i], bazel_log_dir_host, self.test_envs, test_arg
             )
             for i in range(len(chunks))
         ]
@@ -220,7 +211,6 @@ class TesterContainer(Container):
         bazel_log_dir_host: str,
         test_envs: List[str],
         test_arg: Optional[str] = None,
-        run_flaky_tests: bool = False,
     ) -> subprocess.Popen:
         logger.info("Running tests: %s", test_targets)
         commands = [
@@ -255,8 +245,6 @@ class TesterContainer(Container):
             test_cmd += f"--test_env {env} "
         if test_arg:
             test_cmd += f"--test_arg {test_arg} "
-        if run_flaky_tests:
-            test_cmd += f"--runs_per_test {RUN_PER_FLAKY_TEST} "
         test_cmd += f"{' '.join(test_targets)}"
         commands.append(test_cmd)
         return subprocess.Popen(

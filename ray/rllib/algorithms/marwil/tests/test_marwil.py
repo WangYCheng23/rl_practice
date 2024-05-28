@@ -10,11 +10,6 @@ from ray.rllib.algorithms.marwil.marwil_torch_policy import MARWILTorchPolicy
 from ray.rllib.evaluation.postprocessing import compute_advantages
 from ray.rllib.offline import JsonReader
 from ray.rllib.utils.framework import try_import_tf, try_import_torch
-from ray.rllib.utils.metrics import (
-    ENV_RUNNER_RESULTS,
-    EPISODE_RETURN_MEAN,
-    EVALUATION_RESULTS,
-)
 from ray.rllib.utils.test_utils import (
     check,
     check_compute_single_action,
@@ -77,18 +72,13 @@ class TestMARWIL(unittest.TestCase):
                 check_train_results(results)
                 print(results)
 
-                eval_results = results.get(EVALUATION_RESULTS)
+                eval_results = results.get("evaluation")
                 if eval_results:
                     print(
-                        "iter={} R={} ".format(
-                            i, eval_results[ENV_RUNNER_RESULTS][EPISODE_RETURN_MEAN]
-                        )
+                        "iter={} R={} ".format(i, eval_results["episode_reward_mean"])
                     )
                     # Learn until some reward is reached on an actual live env.
-                    if (
-                        eval_results[ENV_RUNNER_RESULTS][EPISODE_RETURN_MEAN]
-                        > min_reward
-                    ):
+                    if eval_results["episode_reward_mean"] > min_reward:
                         print("learnt!")
                         learnt = True
                         break

@@ -3,7 +3,6 @@ package io.ray.test;
 import static io.ray.api.runtimeenv.types.RuntimeEnvName.JARS;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.ray.api.ActorHandle;
 import io.ray.api.Ray;
 import io.ray.api.runtimeenv.RuntimeEnv;
@@ -73,12 +72,18 @@ public class RuntimeEnvTest {
       Ray.init();
       RuntimeEnv runtimeEnv = new RuntimeEnv.Builder().build();
       Map<String, String> envMap =
-          new HashMap<String, String>(ImmutableMap.of("KEY1", "A", "KEY2", "B", "KEY3", "C"));
+          new HashMap<String, String>() {
+            {
+              put("KEY1", "A");
+              put("KEY2", "B");
+              put("KEY1", "C");
+            }
+          };
       runtimeEnv.set(RuntimeEnvName.ENV_VARS, envMap);
 
       String val =
           Ray.task(RuntimeEnvTest::getEnvVar, "KEY1").setRuntimeEnv(runtimeEnv).remote().get();
-      Assert.assertEquals(val, "A");
+      Assert.assertEquals(val, "C");
       val = Ray.task(RuntimeEnvTest::getEnvVar, "KEY2").setRuntimeEnv(runtimeEnv).remote().get();
       Assert.assertEquals(val, "B");
     } finally {
@@ -92,7 +97,12 @@ public class RuntimeEnvTest {
     System.setProperty("ray.job.runtime-env.env-vars.KEY2", "B");
     try {
       Ray.init();
-      Map<String, String> envMap = new HashMap<String, String>(ImmutableMap.of("KEY1", "C"));
+      Map<String, String> envMap =
+          new HashMap<String, String>() {
+            {
+              put("KEY1", "C");
+            }
+          };
       RuntimeEnv runtimeEnv = new RuntimeEnv.Builder().build();
       runtimeEnv.set(RuntimeEnvName.ENV_VARS, envMap);
 

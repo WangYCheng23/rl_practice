@@ -47,6 +47,7 @@ if __name__ == "__main__":
         get_trainable_cls(args.algo)
         .get_default_config()
         .environment("env" if args.num_agents > 0 else "Pendulum-v1")
+        .env_runners(num_env_runners=4)
         .training(
             train_batch_size_per_learner=512,
             mini_batch_size_per_learner=64,

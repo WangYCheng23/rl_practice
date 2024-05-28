@@ -289,10 +289,7 @@ EXAMPLES = {
     },
     "cartpole-a2c": {
         "file": "tuned_examples/a2c/cartpole_a2c.py",
-        "stop": (
-            "{'num_env_steps_sampled_lifetime': 50000, "
-            "'env_runners/episode_return_mean': 200}"
-        ),
+        "stop": "{'timesteps_total': 50000, 'episode_reward_mean': 200}",
         "description": "Runs A2C on the CartPole-v1 environment.",
     },
     "cartpole-a2c-micro": {
@@ -302,10 +299,7 @@ EXAMPLES = {
     # A3C
     "cartpole-a3c": {
         "file": "tuned_examples/a3c/cartpole_a3c.py",
-        "stop": (
-            "{'num_env_steps_sampled_lifetime': 20000, "
-            "'env_runners/episode_return_mean': 150}"
-        ),
+        "stop": "{'timesteps_total': 20000, 'episode_reward_mean': 150}",
         "description": "Runs A3C on the CartPole-v1 environment.",
     },
     "pong-a3c": {

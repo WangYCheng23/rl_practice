@@ -193,16 +193,6 @@ message RegisterNodeReply {
   GcsStatus status = 1;
 }
 
-message UnregisterNodeRequest {
-  // The node id of the node to be unregistered.
-  bytes node_id = 1;
-  NodeDeathInfo node_death_info = 2;
-}
-
-message UnregisterNodeReply {
-  GcsStatus status = 1;
-}
-
 message GetAllNodeInfoRequest {}
 
 message GetAllNodeInfoReply {
@@ -446,7 +436,7 @@ message DrainNodeRequest {
 }
 
 message DrainNodeStatus {
-  // The node id that is acknowledged for draining by GCS.
+  // The node id that is successfully drained from GCS.
   bytes node_id = 1;
 }
 
@@ -671,8 +661,6 @@ service NodeInfoGcsService {
   rpc GetClusterId(GetClusterIdRequest) returns (GetClusterIdReply);
   // Register a node to GCS Service.
   rpc RegisterNode(RegisterNodeRequest) returns (RegisterNodeReply);
-  // Unregister a node to GCS Service.
-  rpc UnregisterNode(UnregisterNodeRequest) returns (UnregisterNodeReply);
   // Drain a node from GCS Service.
   // When the RPC is replied,
   // - It is guaranteed that the requested nodes are going to be drained eventually.

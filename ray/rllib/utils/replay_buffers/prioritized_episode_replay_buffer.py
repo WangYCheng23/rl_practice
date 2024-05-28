@@ -217,7 +217,6 @@ class PrioritizedEpisodeReplayBuffer(EpisodeReplayBuffer):
             # TODO (sven, simon): Should we just treat such an episode chunk
             # as a new episode?
             if eps_evicted_ids[-1] in new_episode_ids:
-                # TODO (simon): Apply the same logic as in the MA-case.
                 len_to_subtract = len(
                     episodes[new_episode_ids.index(eps_evicted_idxs[-1])]
                 )
@@ -289,7 +288,7 @@ class PrioritizedEpisodeReplayBuffer(EpisodeReplayBuffer):
                             for i in range(len(eps))
                         ]
                     )
-                # Increase index to the new length of `self._indices`.
+                # Increase index.
                 j = len(self._indices)
 
     @override(EpisodeReplayBuffer)

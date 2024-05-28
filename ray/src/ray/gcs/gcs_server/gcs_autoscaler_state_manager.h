@@ -31,7 +31,7 @@ class GcsAutoscalerStateManager : public rpc::autoscaler::AutoscalerStateHandler
  public:
   GcsAutoscalerStateManager(
       const std::string &session_name,
-      GcsNodeManager &gcs_node_manager,
+      const GcsNodeManager &gcs_node_manager,
       GcsActorManager &gcs_actor_manager,
       const GcsPlacementGroupManager &gcs_placement_group_manager,
       std::shared_ptr<rpc::NodeManagerClientPool> raylet_client_pool);
@@ -143,7 +143,7 @@ class GcsAutoscalerStateManager : public rpc::autoscaler::AutoscalerStateHandler
   const std::string session_name_ = "";
 
   /// Gcs node manager that provides node status information.
-  GcsNodeManager &gcs_node_manager_;
+  const GcsNodeManager &gcs_node_manager_;
 
   /// Gcs actor manager that provides actor information.
   GcsActorManager &gcs_actor_manager_;

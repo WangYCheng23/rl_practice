@@ -65,4 +65,4 @@ class Bisector:
         """
         subprocess.check_call(["git", "clean", "-df"], cwd=self.git_dir)
         subprocess.check_call(["git", "checkout", revision], cwd=self.git_dir)
-        return self.validator.run(self.test, revision)
+        self.validator.run(self.test, revision)

@@ -25,7 +25,7 @@ namespace gcs {
 
 GcsAutoscalerStateManager::GcsAutoscalerStateManager(
     const std::string &session_name,
-    GcsNodeManager &gcs_node_manager,
+    const GcsNodeManager &gcs_node_manager,
     GcsActorManager &gcs_actor_manager,
     const GcsPlacementGroupManager &gcs_placement_group_manager,
     std::shared_ptr<rpc::NodeManagerClientPool> raylet_client_pool)
@@ -386,11 +386,19 @@ void GcsAutoscalerStateManager::HandleDrainNode(
     return;
   }
 
+  auto node = std::move(maybe_node.value());
+
+  // Set the death reason of the node.
+  auto death_info = node->mutable_death_info();
+  if (request.reason() == DrainNodeReason::DRAIN_NODE_REASON_PREEMPTION) {
+    death_info->set_reason(rpc::NodeDeathInfo::AUTOSCALER_DRAIN_PREEMPTED);
+  } else {
+    death_info->set_reason(rpc::NodeDeathInfo::AUTOSCALER_DRAIN_IDLE);
+  }
   if (RayConfig::instance().enable_reap_actor_death()) {
     gcs_actor_manager_.SetPreemptedAndPublish(node_id);
   }
 
-  auto node = std::move(maybe_node.value());
   rpc::Address raylet_address;
   raylet_address.set_raylet_id(node->node_id());
   raylet_address.set_ip_address(node->node_manager_address());
@@ -401,15 +409,18 @@ void GcsAutoscalerStateManager::HandleDrainNode(
       request.reason(),
       request.reason_message(),
       draining_deadline_timestamp_ms,
-      [this, request, reply, send_reply_callback, node_id](
+      [this, reply, send_reply_callback, node_id](
           const Status &status, const rpc::DrainRayletReply &raylet_reply) {
         reply->set_is_accepted(raylet_reply.is_accepted());
 
-        if (raylet_reply.is_accepted()) {
-          gcs_node_manager_.SetNodeDraining(
-              node_id, std::make_shared<rpc::autoscaler::DrainNodeRequest>(request));
-        } else {
+        if (!raylet_reply.is_accepted()) {
           reply->set_rejection_reason_message(raylet_reply.rejection_reason_message());
+          // Unset the death reason of the node if the drain was rejected.
+          auto node = gcs_node_manager_.GetAliveNode(node_id);
+          if (node.has_value()) {
+            auto death_info = node.value()->mutable_death_info();
+            death_info->set_reason(rpc::NodeDeathInfo::UNSPECIFIED);
+          }
         }
         send_reply_callback(status, nullptr, nullptr);
       });

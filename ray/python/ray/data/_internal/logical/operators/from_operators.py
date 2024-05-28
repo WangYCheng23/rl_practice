@@ -42,12 +42,6 @@ class FromItems(AbstractFrom):
     pass
 
 
-class FromBlocks(AbstractFrom):
-    """Logical operator for `from_blocks`."""
-
-    pass
-
-
 class FromNumpy(AbstractFrom):
     """Logical operator for `from_numpy`."""
 

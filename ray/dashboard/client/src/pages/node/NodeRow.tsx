@@ -77,9 +77,6 @@ const useStyles = makeStyles((theme) =>
     labels: {
       maxWidth: 200,
     },
-    stateMessage: {
-      maxWidth: 200,
-    },
   }),
 );
 
@@ -129,17 +126,6 @@ export const NodeRow = ({
       </TableCell>
       <TableCell>
         <StatusChip type="node" status={raylet.state} />
-      </TableCell>
-      <TableCell align="center">
-        {raylet.stateMessage ? (
-          <CodeDialogButtonWithPreview
-            className={classes.stateMessage}
-            title="State Message"
-            code={raylet.stateMessage}
-          />
-        ) : (
-          "-"
-        )}
       </TableCell>
       <TableCell align="center">
         <Tooltip title={raylet.nodeId} arrow>

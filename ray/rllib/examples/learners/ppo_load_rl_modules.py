@@ -5,7 +5,6 @@ import tempfile
 
 import ray
 from ray import air, tune
-from ray.air.constants import TRAINING_ITERATION
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.algorithms.ppo.ppo_catalog import PPOCatalog
 from ray.rllib.algorithms.ppo.tf.ppo_tf_rl_module import PPOTfRLModule
@@ -69,7 +68,7 @@ if __name__ == "__main__":
         "PPO",
         param_space=config.to_dict(),
         run_config=air.RunConfig(
-            stop={TRAINING_ITERATION: 1},
+            stop={"training_iteration": 1},
             failure_config=air.FailureConfig(fail_fast="raise"),
         ),
     )

@@ -2,18 +2,17 @@ import argparse
 
 import ray
 from ray import air, tune
-from ray.air.constants import TRAINING_ITERATION
 from ray.rllib.algorithms.ppo import PPOConfig
 
-LEARNER_CONFIG = {
-    "remote-cpu": {"num_learners": 1},
-    "remote-gpu": {"num_learners": 1, "num_gpus_per_learner": 1},
+RESOURCE_CONFIG = {
+    "remote-cpu": {"num_learner_workers": 1},
+    "remote-gpu": {"num_learner_workers": 1, "num_gpus_per_learner_worker": 1},
     "multi-gpu-ddp": {
-        "num_learners": 2,
-        "num_gpus_per_learner": 1,
+        "num_learner_workers": 2,
+        "num_gpus_per_learner_worker": 1,
     },
     "local-cpu": {},
-    "local-gpu": {"num_gpus_per_learner": 1},
+    "local-gpu": {"num_gpus_per_learner_worker": 1},
 }
 
 
@@ -44,17 +43,17 @@ if __name__ == "__main__":
         PPOConfig()
         .framework(args.framework)
         .environment("CartPole-v1")
-        .learners(**LEARNER_CONFIG[args.config])
+        .resources(**RESOURCE_CONFIG[args.config])
     )
 
-    print("Testing with learner config: ", LEARNER_CONFIG[args.config])
+    print("Testing with resource config: ", RESOURCE_CONFIG[args.config])
     print("Testing with framework: ", args.framework)
     print("-" * 80)
     tuner = tune.Tuner(
         "PPO",
         param_space=config.to_dict(),
         run_config=air.RunConfig(
-            stop={TRAINING_ITERATION: 1},
+            stop={"training_iteration": 1},
             failure_config=air.FailureConfig(fail_fast="raise"),
         ),
     )

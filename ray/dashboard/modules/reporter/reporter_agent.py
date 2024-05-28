@@ -77,151 +77,127 @@ METRICS_GAUGES = {
         "node_cpu_utilization",
         "Total CPU usage on a ray node",
         "percentage",
-        ["ip", "Version", "SessionName"],
+        ["ip", "SessionName"],
     ),
     "node_cpu_count": Gauge(
         "node_cpu_count",
         "Total CPUs available on a ray node",
         "cores",
-        ["ip", "Version", "SessionName"],
+        ["ip", "SessionName"],
     ),
     "node_mem_used": Gauge(
-        "node_mem_used",
-        "Memory usage on a ray node",
-        "bytes",
-        ["ip", "Version", "SessionName"],
+        "node_mem_used", "Memory usage on a ray node", "bytes", ["ip", "SessionName"]
     ),
     "node_mem_available": Gauge(
         "node_mem_available",
         "Memory available on a ray node",
         "bytes",
-        ["ip", "Version", "SessionName"],
+        ["ip", "SessionName"],
     ),
     "node_mem_total": Gauge(
-        "node_mem_total",
-        "Total memory on a ray node",
-        "bytes",
-        ["ip", "Version", "SessionName"],
+        "node_mem_total", "Total memory on a ray node", "bytes", ["ip", "SessionName"]
     ),
     "node_mem_shared_bytes": Gauge(
         "node_mem_shared_bytes",
         "Total shared memory usage on a ray node",
         "bytes",
-        ["ip", "Version", "SessionName"],
+        ["ip", "SessionName"],
     ),
     "node_gpus_available": Gauge(
         "node_gpus_available",
         "Total GPUs available on a ray node",
         "percentage",
-        ["ip", "Version", "SessionName", "GpuDeviceName", "GpuIndex"],
+        ["ip", "SessionName", "GpuDeviceName", "GpuIndex"],
     ),
     "node_gpus_utilization": Gauge(
         "node_gpus_utilization",
         "Total GPUs usage on a ray node",
         "percentage",
-        ["ip", "Version", "SessionName", "GpuDeviceName", "GpuIndex"],
+        ["ip", "SessionName", "GpuDeviceName", "GpuIndex"],
     ),
     "node_gram_used": Gauge(
         "node_gram_used",
         "Total GPU RAM usage on a ray node",
         "bytes",
-        ["ip", "Version", "SessionName", "GpuDeviceName", "GpuIndex"],
+        ["ip", "SessionName", "GpuDeviceName", "GpuIndex"],
     ),
     "node_gram_available": Gauge(
         "node_gram_available",
         "Total GPU RAM available on a ray node",
         "bytes",
-        ["ip", "Version", "SessionName", "GpuDeviceName", "GpuIndex"],
+        ["ip", "SessionName", "GpuDeviceName", "GpuIndex"],
     ),
     "node_disk_io_read": Gauge(
-        "node_disk_io_read",
-        "Total read from disk",
-        "bytes",
-        ["ip", "Version", "SessionName"],
+        "node_disk_io_read", "Total read from disk", "bytes", ["ip", "SessionName"]
     ),
     "node_disk_io_write": Gauge(
-        "node_disk_io_write",
-        "Total written to disk",
-        "bytes",
-        ["ip", "Version", "SessionName"],
+        "node_disk_io_write", "Total written to disk", "bytes", ["ip", "SessionName"]
     ),
     "node_disk_io_read_count": Gauge(
         "node_disk_io_read_count",
         "Total read ops from disk",
         "io",
-        ["ip", "Version", "SessionName"],
+        ["ip", "SessionName"],
     ),
     "node_disk_io_write_count": Gauge(
         "node_disk_io_write_count",
         "Total write ops to disk",
         "io",
-        ["ip", "Version", "SessionName"],
+        ["ip", "SessionName"],
     ),
     "node_disk_io_read_speed": Gauge(
-        "node_disk_io_read_speed",
-        "Disk read speed",
-        "bytes/sec",
-        ["ip", "Version", "SessionName"],
+        "node_disk_io_read_speed", "Disk read speed", "bytes/sec", ["ip", "SessionName"]
     ),
     "node_disk_io_write_speed": Gauge(
         "node_disk_io_write_speed",
         "Disk write speed",
         "bytes/sec",
-        ["ip", "Version", "SessionName"],
+        ["ip", "SessionName"],
     ),
     "node_disk_read_iops": Gauge(
-        "node_disk_read_iops",
-        "Disk read iops",
-        "iops",
-        ["ip", "Version", "SessionName"],
+        "node_disk_read_iops", "Disk read iops", "iops", ["ip", "SessionName"]
     ),
     "node_disk_write_iops": Gauge(
-        "node_disk_write_iops",
-        "Disk write iops",
-        "iops",
-        ["ip", "Version", "SessionName"],
+        "node_disk_write_iops", "Disk write iops", "iops", ["ip", "SessionName"]
     ),
     "node_disk_usage": Gauge(
         "node_disk_usage",
         "Total disk usage (bytes) on a ray node",
         "bytes",
-        ["ip", "Version", "SessionName"],
+        ["ip", "SessionName"],
     ),
     "node_disk_free": Gauge(
         "node_disk_free",
         "Total disk free (bytes) on a ray node",
         "bytes",
-        ["ip", "Version", "SessionName"],
+        ["ip", "SessionName"],
     ),
     "node_disk_utilization_percentage": Gauge(
         "node_disk_utilization_percentage",
         "Total disk utilization (percentage) on a ray node",
         "percentage",
-        ["ip", "Version", "SessionName"],
+        ["ip", "SessionName"],
     ),
     "node_network_sent": Gauge(
-        "node_network_sent",
-        "Total network sent",
-        "bytes",
-        ["ip", "Version", "SessionName"],
+        "node_network_sent", "Total network sent", "bytes", ["ip", "SessionName"]
     ),
     "node_network_received": Gauge(
         "node_network_received",
         "Total network received",
         "bytes",
-        ["ip", "Version", "SessionName"],
+        ["ip", "SessionName"],
     ),
     "node_network_send_speed": Gauge(
         "node_network_send_speed",
         "Network send speed",
         "bytes/sec",
-        ["ip", "Version", "SessionName"],
+        ["ip", "SessionName"],
     ),
     "node_network_receive_speed": Gauge(
         "node_network_receive_speed",
         "Network receive speed",
         "bytes/sec",
-        ["ip", "Version", "SessionName"],
+        ["ip", "SessionName"],
     ),
     "component_cpu_percentage": Gauge(
         "component_cpu_percentage",
@@ -258,19 +234,19 @@ METRICS_GAUGES = {
         "cluster_active_nodes",
         "Active nodes on the cluster",
         "count",
-        ["node_type", "Version", "SessionName"],
+        ["node_type", "SessionName"],
     ),
     "cluster_failed_nodes": Gauge(
         "cluster_failed_nodes",
         "Failed nodes on the cluster",
         "count",
-        ["node_type", "Version", "SessionName"],
+        ["node_type", "SessionName"],
     ),
     "cluster_pending_nodes": Gauge(
         "cluster_pending_nodes",
         "Pending nodes on the cluster",
         "count",
-        ["node_type", "Version", "SessionName"],
+        ["node_type", "SessionName"],
     ),
 }
 
@@ -1233,10 +1209,7 @@ class ReporterAgent(
                     records_reported = self._record_stats(stats, cluster_stats)
                     self._metrics_agent.record_and_export(
                         records_reported,
-                        global_tags={
-                            "Version": ray.__version__,
-                            "SessionName": self._session_name,
-                        },
+                        global_tags={"SessionName": self._session_name},
                     )
                     self._metrics_agent.clean_all_dead_worker_metrics()
                 await publisher.publish_resource_usage(self._key, jsonify_asdict(stats))

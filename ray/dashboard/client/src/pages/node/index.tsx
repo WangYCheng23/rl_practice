@@ -50,7 +50,6 @@ const columns = [
   { label: "" }, // Expand button
   { label: "Host / Worker Process name" },
   { label: "State" },
-  { label: "State Message" },
   { label: "ID" },
   { label: "IP / PID" },
   { label: "Actions" },

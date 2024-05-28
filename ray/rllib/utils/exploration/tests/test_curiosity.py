@@ -7,15 +7,9 @@ import unittest
 
 import ray
 from ray import air, tune
-from ray.air.constants import TRAINING_ITERATION
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 import ray.rllib.algorithms.ppo as ppo
 from ray.rllib.utils.test_utils import check_learning_achieved, framework_iterator
-from ray.rllib.utils.metrics import (
-    ENV_RUNNER_RESULTS,
-    EPISODE_RETURN_MAX,
-    EPISODE_RETURN_MEAN,
-)
 from ray.rllib.utils.numpy import one_hot
 from ray.tune import register_env
 
@@ -35,7 +29,7 @@ class MyCallBack(DefaultCallbacks):
         policies,
         postprocessed_batch,
         original_batches,
-        **kwargs,
+        **kwargs
     ):
         pos = np.argmax(postprocessed_batch["obs"], -1)
         x, y = pos % 8, pos // 8
@@ -201,7 +195,7 @@ class TestCuriosity(unittest.TestCase):
             for i in range(num_iterations):
                 result = algo.train()
                 print(result)
-                if result[ENV_RUNNER_RESULTS][EPISODE_RETURN_MAX] > 0.0:
+                if result["episode_reward_max"] > 0.0:
                     print("Reached goal after {} iters!".format(i))
                     learnt = True
                     break
@@ -219,7 +213,7 @@ class TestCuriosity(unittest.TestCase):
             #    rewards_wo = 0.0
             #    for _ in range(num_iterations):
             #        result = algo.train()
-            #        rewards_wo += result[ENV_RUNNER_RESULTS][EPISODE_RETURN_MEAN]
+            #        rewards_wo += result["episode_reward_mean"]
             #        print(result)
             #    algo.stop()
             #    self.assertTrue(rewards_wo == 0.0)
@@ -270,8 +264,8 @@ class TestCuriosity(unittest.TestCase):
 
         min_reward = 0.001
         stop = {
-            TRAINING_ITERATION: 25,
-            f"{ENV_RUNNER_RESULTS}/{EPISODE_RETURN_MEAN}": min_reward,
+            "training_iteration": 25,
+            "episode_reward_mean": min_reward,
         }
         for _ in framework_iterator(config, frameworks="torch"):
             # To replay:
@@ -293,13 +287,13 @@ class TestCuriosity(unittest.TestCase):
                 run_config=air.RunConfig(stop=stop, verbose=1),
             ).fit()
             check_learning_achieved(results, min_reward)
-            iters = results.get_best_result().metrics[TRAINING_ITERATION]
+            iters = results.get_best_result().metrics["training_iteration"]
             print("Reached in {} iterations.".format(iters))
 
             # config_wo = config.copy()
             # config_wo["exploration_config"] = {"type": "StochasticSampling"}
             # stop_wo = stop.copy()
-            # stop_wo[TRAINING_ITERATION] = iters
+            # stop_wo["training_iteration"] = iters
             # results = tune.Tuner(
             #     "PPO", param_space=config_wo, stop=stop_wo, verbose=1).fit()
             # try:

@@ -26,7 +26,6 @@ from ray.data.preprocessor import Preprocessor
 from ray.data.read_api import (  # noqa: F401
     from_arrow,
     from_arrow_refs,
-    from_blocks,
     from_dask,
     from_huggingface,
     from_items,

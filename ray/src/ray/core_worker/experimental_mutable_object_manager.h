@@ -16,7 +16,6 @@
 
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <vector>
 
@@ -38,7 +37,7 @@ class MutableObjectManager {
  public:
   struct Channel {
     Channel(std::unique_ptr<plasma::MutableObject> mutable_object_ptr)
-        : lock(std::make_unique<std::mutex>()),
+        : lock(std::make_unique<absl::Mutex>()),
           mutable_object(std::move(mutable_object_ptr)) {}
 
     // WriteAcquire() sets this to true. WriteRelease() sets this to false.
@@ -49,7 +48,7 @@ class MutableObjectManager {
     bool reading = false;
 
     // This mutex protects `next_version_to_read`.
-    std::unique_ptr<std::mutex> lock;
+    std::unique_ptr<absl::Mutex> lock;
     // The last version that we read. To read again, we must pass a newer
     // version than this.
     int64_t next_version_to_read = 1;

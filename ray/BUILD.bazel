@@ -81,8 +81,12 @@ bool_flag(
 
 config_setting(
     name = "jemalloc",
-    constraint_values = ["@platforms//os:linux"],
-    flag_values = {":jemalloc_flag": "true"},
+    constraint_values = [
+        "@platforms//os:linux",
+    ],
+    flag_values = {
+        ":jemalloc_flag": "true",
+    },
 )
 
 # === Begin of rpc definitions ===
@@ -299,7 +303,7 @@ ray_cc_library(
 PROPAGATED_WINDOWS_DEFINES = ["ARROW_STATIC"]
 
 PLASMA_COPTS = COPTS + select({
-    "@platforms//os:windows": [
+    "@bazel_tools//src/conditions:windows": [
     ] + ["-D" + define for define in PROPAGATED_WINDOWS_DEFINES],
     "//conditions:default": [
         "-DARROW_USE_GLOG",
@@ -307,7 +311,7 @@ PLASMA_COPTS = COPTS + select({
 })
 
 PLASMA_LINKOPTS = [] + select({
-    "@platforms//os:windows": [
+    "@bazel_tools//src/conditions:windows": [
         "-DefaultLib:" + "ws2_32.lib",
     ],
     "//conditions:default": [
@@ -325,7 +329,7 @@ ray_cc_library(
         "src/ray/object_manager/plasma/protocol.cc",
         "src/ray/object_manager/plasma/shared_memory.cc",
     ] + select({
-        "@platforms//os:windows": [
+        "@bazel_tools//src/conditions:windows": [
         ],
         "//conditions:default": [
             "src/ray/object_manager/plasma/fling.cc",
@@ -343,7 +347,7 @@ ray_cc_library(
         "src/ray/object_manager/plasma/protocol.h",
         "src/ray/object_manager/plasma/shared_memory.h",
     ] + select({
-        "@platforms//os:windows": [
+        "@bazel_tools//src/conditions:windows": [
         ],
         "//conditions:default": [
             "src/ray/object_manager/plasma/fling.h",
@@ -351,7 +355,7 @@ ray_cc_library(
     }),
     copts = PLASMA_COPTS,
     defines = select({
-        "@platforms//os:windows": PROPAGATED_WINDOWS_DEFINES,
+        "@bazel_tools//src/conditions:windows": PROPAGATED_WINDOWS_DEFINES,
         "//conditions:default": [],
     }),
     linkopts = PLASMA_LINKOPTS,
@@ -586,7 +590,7 @@ ray_cc_library(
         "src/ray/stats/tag_defs.h",
     ],
     linkopts = select({
-        "@platforms//os:windows": [
+        "@bazel_tools//src/conditions:windows": [
         ],
         "//conditions:default": [
             "-lpthread",
@@ -611,12 +615,13 @@ ray_cc_library(
     ),
     hdrs = glob(
         [
+            "src/ray/raylet/raylet_util.h",
             "src/ray/raylet/scheduling/**/*.h",
             "src/ray/core_worker/common.h",
         ],
     ),
     linkopts = select({
-        "@platforms//os:windows": [
+        "@bazel_tools//src/conditions:windows": [
         ],
         "//conditions:default": [
             "-lpthread",
@@ -666,7 +671,7 @@ ray_cc_library(
         ],
     ),
     linkopts = select({
-        "@platforms//os:windows": [
+        "@bazel_tools//src/conditions:windows": [
         ],
         "//conditions:default": [
             "-lpthread",
@@ -712,7 +717,7 @@ ray_cc_library(
         "src/ray/raylet_client/*.h",
     ]),
     linkopts = select({
-        "@platforms//os:windows": [
+        "@bazel_tools//src/conditions:windows": [
         ],
         "//conditions:default": [
             "-lpthread",
@@ -762,8 +767,8 @@ ray_cc_library(
         "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_map",
-        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/container:node_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@nlohmann_json",
     ],
 )
@@ -1248,12 +1253,9 @@ ray_cc_test(
         "src/ray/core_worker/test/mutable_object_provider_test.cc",
     ],
     tags = [
-        "no_tsan",
-        "no_windows",
-        "team:core",
-    ],
-    target_compatible_with = [
-        "@platforms//os:linux",
+      "no_tsan",
+      "team:core",
+      "no_windows"
     ],
     deps = [
         ":core_worker_lib",
@@ -1261,6 +1263,9 @@ ray_cc_test(
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_googletest//:gtest_main",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
     ],
 )
 
@@ -2043,7 +2048,7 @@ ray_cc_library(
 ray_cc_library(
     name = "platform_shims",
     srcs = [] + select({
-        "@platforms//os:windows": glob([
+        "@bazel_tools//src/conditions:windows": glob([
             "src/shims/windows/**/*.c",
             "src/shims/windows/**/*.cc",
             "src/shims/windows/**/*.h",
@@ -2051,13 +2056,13 @@ ray_cc_library(
         "//conditions:default": [],
     }),
     hdrs = [] + select({
-        "@platforms//os:windows": glob([
+        "@bazel_tools//src/conditions:windows": glob([
             "src/shims/windows/**/*.h",
         ]),
         "//conditions:default": [],
     }),
     strip_include_prefix = select({
-        "@platforms//os:windows": "src/shims/windows",
+        "@bazel_tools//src/conditions:windows": "src/shims/windows",
         "//conditions:default": "",
     }),
 )
@@ -2226,7 +2231,6 @@ ray_cc_test(
     deps = [
         ":redis_store_client",
         ":store_client_test_lib",
-        "@boost//:optional",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -2254,7 +2258,6 @@ ray_cc_test(
     deps = [
         ":redis_store_client",
         ":store_client_test_lib",
-        "@boost//:optional",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -2366,10 +2369,11 @@ pyx_library(
         copts = COPTS + PYX_COPTS,
         # see https://github.com/tensorflow/tensorflow/blob/r2.1/tensorflow/lite/BUILD#L444
         linkopts = select({
-            "@platforms//os:osx": [
+            "@bazel_tools//src/conditions:darwin": [
                 "-Wl,-exported_symbols_list,$(location //:src/ray/ray_exported_symbols.lds)",
             ],
-            "@platforms//os:windows": [],
+            "@bazel_tools//src/conditions:windows": [
+            ],
             "//conditions:default": [
                 "-Wl,--version-script,$(location //:src/ray/ray_version_script.lds)",
             ],
@@ -2399,10 +2403,11 @@ ray_cc_binary(
     ]),
     # Export ray ABI symbols, which can then be used by libstreaming_java.so. see `//:_raylet`
     linkopts = select({
-        "@platforms//os:osx": [
+        "@bazel_tools//src/conditions:darwin": [
             "-Wl,-exported_symbols_list,$(location //:src/ray/ray_exported_symbols.lds)",
         ],
-        "@platforms//os:windows": [],
+        "@bazel_tools//src/conditions:windows": [
+        ],
         "//conditions:default": [
             "-Wl,--version-script,$(location //:src/ray/ray_version_script.lds)",
         ],
@@ -2449,7 +2454,7 @@ filegroup(
 alias(
     name = "redis-server",
     actual = select({
-        "@platforms//os:windows": "@com_github_tporadowski_redis_bin//:redis-server.exe",
+        "@bazel_tools//src/conditions:windows": "@com_github_tporadowski_redis_bin//:redis-server.exe",
         "//conditions:default": "@com_github_antirez_redis//:redis-server",
     }),
 )
@@ -2457,7 +2462,7 @@ alias(
 alias(
     name = "redis-cli",
     actual = select({
-        "@platforms//os:windows": "@com_github_tporadowski_redis_bin//:redis-cli.exe",
+        "@bazel_tools//src/conditions:windows": "@com_github_tporadowski_redis_bin//:redis-cli.exe",
         "//conditions:default": "@com_github_antirez_redis//:redis-cli",
     }),
 )

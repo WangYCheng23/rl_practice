@@ -1,9 +1,5 @@
 import gymnasium as gym
 from ray.rllib.algorithms.ppo import PPOConfig
-from ray.rllib.utils.metrics import (
-    ENV_RUNNER_RESULTS,
-    EPISODE_RETURN_MEAN,
-)
 
 
 # Define your problem using python and Farama-Foundation's gymnasium API:
@@ -73,7 +69,7 @@ algo = config.build()
 # we can expect to reach an optimal episode reward of 0.0.
 for i in range(5):
     results = algo.train()
-    print(f"Iter: {i}; avg. reward={results[ENV_RUNNER_RESULTS][EPISODE_RETURN_MEAN]}")
+    print(f"Iter: {i}; avg. reward={results['episode_reward_mean']}")
 
 # Perform inference (action computations) based on given env observations.
 # Note that we are using a slightly simpler env here (-3.0 to 3.0, instead

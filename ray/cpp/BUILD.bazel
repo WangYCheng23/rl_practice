@@ -7,10 +7,10 @@ cc_binary(
     name = "libray_api.so",
     copts = COPTS,
     linkopts = select({
-        "@platforms//os:osx": [
+        "@bazel_tools//src/conditions:darwin": [
             #TODO(larry): Hide the symbols when we make it work on mac.
         ],
-        "@platforms//os:windows": [
+        "@bazel_tools//src/conditions:windows": [
             #TODO(larry): Hide the symbols when we make it work on Windows.
         ],
         "//conditions:default": [
@@ -92,7 +92,7 @@ cc_binary(
     copts = COPTS,
     linkstatic = True,
     deps = select({
-        "@platforms//os:windows": [
+        "@bazel_tools//src/conditions:windows": [
             # TODO(SongGuyang): Change to use dynamic library
             # "ray_cpp_lib" when we make it work on Windows.
             "ray_api_lib",

@@ -299,7 +299,6 @@ py_test_module_list(
     "test_metrics_agent_2.py",
     "test_microbenchmarks.py",
     "test_mini.py",
-    "test_node_death.py",
     "test_numba.py",
     "test_raylet_output.py",
     "test_top_level_api.py",
@@ -317,7 +316,7 @@ py_test_module_list(
     "test_channel.py",
   ],
   size = "medium",
-  tags = ["exclusive", "accelerated_dag", "no_windows", "team:core"],
+  tags = ["exclusive", "team:core"],
   deps = ["//:ray_lib", ":conftest"],
 )
 
@@ -727,6 +726,16 @@ py_test_module_list(
   env = {"RAY_CLIENT_MODE": "1", "RAY_PROFILING": "1"},
   tags = ["exclusive", "client_tests", "team:core"],
   deps = ["//:ray_lib", ":conftest"],
+)
+
+py_test_module_list(
+  files = [
+    "test_actor_in_container.py",
+  ],
+  size = "large",
+  tags = ["exclusive", "worker-container", "team:serve"],
+  # Now we run this test in a container which has installed ray
+  deps = [],
 )
 
 py_test_module_list(

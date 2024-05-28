@@ -10,7 +10,6 @@ Getting Involved / Contributing
     :hidden:
 
     development
-    ci
     docs
     writing-code-snippets
     fake-autoscaler
