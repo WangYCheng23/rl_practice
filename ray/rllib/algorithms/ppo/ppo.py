@@ -28,6 +28,7 @@ from ray.rllib.execution.train_ops import (
 from ray.rllib.policy.policy import Policy
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.deprecation import DEPRECATED_VALUE
+from ray.rllib.utils.metrics.learner_info import LEARNER_STATS_KEY
 from ray.rllib.utils.metrics import (
     ENV_RUNNER_RESULTS,
     ENV_RUNNER_SAMPLING_TIMER,
@@ -38,7 +39,6 @@ from ray.rllib.utils.metrics import (
     NUM_AGENT_STEPS_SAMPLED_LIFETIME,
     NUM_ENV_STEPS_SAMPLED,
     NUM_ENV_STEPS_SAMPLED_LIFETIME,
-    NUM_ENV_STEPS_TRAINED,
     NUM_ENV_STEPS_TRAINED_LIFETIME,
     NUM_EPISODES,
     NUM_EPISODES_LIFETIME,
@@ -47,8 +47,6 @@ from ray.rllib.utils.metrics import (
     TIMERS,
     ALL_MODULES,
 )
-from ray.rllib.utils.metrics.learner_info import LEARNER_STATS_KEY
-from ray.rllib.utils.numpy import convert_to_numpy
 from ray.rllib.utils.schedules.scheduler import Scheduler
 from ray.rllib.utils.typing import ResultDict
 from ray.util.debug import log_once
@@ -334,7 +332,7 @@ class PPOConfig(AlgorithmConfig):
         # we subsample a batch of `sgd_minibatch_size` from the train-batch for
         # each `num_sgd_iter`).
         if (
-            not self.enable_rl_module_and_learner
+            not self._enable_new_api_stack
             and self.sgd_minibatch_size > self.train_batch_size
         ):
             raise ValueError(
@@ -344,7 +342,7 @@ class PPOConfig(AlgorithmConfig):
                 f"is iterated over (used for updating the policy) {self.num_sgd_iter} "
                 "times."
             )
-        elif self.enable_rl_module_and_learner:
+        elif self._enable_new_api_stack:
             mbs = self.mini_batch_size_per_learner or self.sgd_minibatch_size
             tbs = self.train_batch_size_per_learner or self.train_batch_size
             if isinstance(mbs, int) and isinstance(tbs, int) and mbs > tbs:
@@ -372,7 +370,7 @@ class PPOConfig(AlgorithmConfig):
             )
 
         # Entropy coeff schedule checking.
-        if self.enable_rl_module_and_learner:
+        if self._enable_new_api_stack:
             if self.entropy_coeff_schedule is not None:
                 raise ValueError(
                     "`entropy_coeff_schedule` is deprecated and must be None! Use the "
@@ -420,7 +418,7 @@ class PPO(Algorithm):
     @override(Algorithm)
     def training_step(self):
         # New API stack (RLModule, Learner, EnvRunner, ConnectorV2).
-        if self.config.enable_env_runner_and_connector_v2:
+        if self.config.uses_new_env_runners:
             return self._training_step_new_api_stack()
         # Old and hybrid API stacks (Policy, RolloutWorker, Connector, maybe RLModule,
         # maybe Learner).
@@ -432,23 +430,19 @@ class PPO(Algorithm):
         with self.metrics.log_time((TIMERS, ENV_RUNNER_SAMPLING_TIMER)):
             # Sample in parallel from the workers.
             if self.config.count_steps_by == "agent_steps":
-                episodes, env_runner_results = synchronous_parallel_sample(
+                episodes, env_runner_metrics = synchronous_parallel_sample(
                     worker_set=self.workers,
                     max_agent_steps=self.config.total_train_batch_size,
                     sample_timeout_s=self.config.sample_timeout_s,
-                    _uses_new_env_runners=(
-                        self.config.enable_env_runner_and_connector_v2
-                    ),
+                    _uses_new_env_runners=self.config.uses_new_env_runners,
                     _return_metrics=True,
                 )
             else:
-                episodes, env_runner_results = synchronous_parallel_sample(
+                episodes, env_runner_metrics = synchronous_parallel_sample(
                     worker_set=self.workers,
                     max_env_steps=self.config.total_train_batch_size,
                     sample_timeout_s=self.config.sample_timeout_s,
-                    _uses_new_env_runners=(
-                        self.config.enable_env_runner_and_connector_v2
-                    ),
+                    _uses_new_env_runners=self.config.uses_new_env_runners,
                     _return_metrics=True,
                 )
             # Return early if all our workers failed.
@@ -456,7 +450,7 @@ class PPO(Algorithm):
                 return {}
 
             # Reduce EnvRunner metrics over the n EnvRunners.
-            self.metrics.log_n_dicts(env_runner_results, key=ENV_RUNNER_RESULTS)
+            self.metrics.log_n_dicts(env_runner_metrics, key=ENV_RUNNER_RESULTS)
             # Log lifetime counts for env- and agent steps.
             self.metrics.log_dict(
                 {
@@ -483,11 +477,24 @@ class PPO(Algorithm):
                 ),
                 num_iters=self.config.num_sgd_iter,
             )
-            self.metrics.log_n_dicts(learner_results, key=LEARNER_RESULTS)
+            self.metrics.log_dict(
+                learner_results,
+                key=LEARNER_RESULTS,
+                # TODO (sven): For now, as we do NOT use MetricsLogger inside Learner
+                #  and LearnerGroup, we assume here that the
+                #  Learner/LearnerGroup-returned values are absolute (and thus require a
+                #  very large reduce window (take as-is) AND resetting after reduce).
+                #  Remove these settings below, once Learner/LearnerGroup themselves
+                #  use MetricsLogger.
+                window=1,
+                # reset_on_reduce=True,
+            )
+            # TODO (sven): Move these counters into Learners and add
+            #  module-steps and agent-steps trained and sampled.
             self.metrics.log_dict(
                 {
                     NUM_ENV_STEPS_TRAINED_LIFETIME: self.metrics.peek(
-                        LEARNER_RESULTS, ALL_MODULES, NUM_ENV_STEPS_TRAINED
+                        ENV_RUNNER_RESULTS, NUM_ENV_STEPS_SAMPLED
                     ),
                     # NUM_MODULE_STEPS_TRAINED_LIFETIME: self.metrics.peek(
                     #    LEARNER_RESULTS, NUM_MODULE_STEPS_TRAINED
@@ -499,15 +506,13 @@ class PPO(Algorithm):
         # Update weights - after learning on the local worker - on all remote
         # workers.
         with self.metrics.log_time((TIMERS, SYNCH_WORKER_WEIGHTS_TIMER)):
-            # The train results's loss keys are ModuleIDs to their loss values.
-            # But we also return a total_loss key at the same level as the ModuleID
-            # keys. So we need to subtract that to get the correct set of ModuleIDs to
-            # update.
-            # TODO (sven): We should also not be using `learner_results` as a messenger
-            #  to infer which modules to update. `policies_to_train` might also NOT work
-            #  as it might be a very large set (100s of Modules) vs a smaller Modules
-            #  set that's present in the current train batch.
-            modules_to_update = set(learner_results[0].keys()) - {ALL_MODULES}
+            # The train results's loss keys are pids to their loss values. But we also
+            # return a total_loss key at the same level as the pid keys. So we need to
+            # subtract that to get the total set of pids to update.
+            # TODO (Kourosh): We should also not be using train_results as a message
+            #  passing medium to infer which policies to update. We could use
+            #  policies_to_train variable that is given by the user to infer this.
+            modules_to_update = set(learner_results.keys()) - {ALL_MODULES}
             if self.workers.num_remote_workers() > 0:
                 self.workers.sync_weights(
                     # Sync weights from learner_group to all rollout workers.
@@ -523,13 +528,12 @@ class PPO(Algorithm):
         with self.metrics.log_time((TIMERS, LEARNER_ADDITIONAL_UPDATE_TIMER)):
             kl_dict = {}
             if self.config.use_kl_loss:
-                for mid in modules_to_update:
-                    kl = convert_to_numpy(
-                        self.metrics.peek(LEARNER_RESULTS, mid, LEARNER_RESULTS_KL_KEY)
-                    )
+                for module_id in modules_to_update:
+                    kl = learner_results[module_id][LEARNER_RESULTS_KL_KEY]
+                    kl_dict[module_id] = kl
                     if np.isnan(kl):
                         logger.warning(
-                            f"KL divergence for Module {mid} is non-finite, this "
+                            f"KL divergence for Module {module_id} is non-finite, this "
                             "will likely destabilize your model and the training "
                             "process. Action(s) in a specific state have near-zero "
                             "probability. This can happen naturally in deterministic "
@@ -538,7 +542,6 @@ class PPO(Algorithm):
                             "`kl_coeff` to 0.0 or increasing `entropy_coeff` in your "
                             "config."
                         )
-                    kl_dict[mid] = kl
 
             # triggers a special update method on RLOptimizer to update the KL values.
             additional_results = self.learner_group.additional_update(
@@ -546,7 +549,18 @@ class PPO(Algorithm):
                 sampled_kl_values=kl_dict,
                 timestep=self.metrics.peek(NUM_ENV_STEPS_SAMPLED_LIFETIME),
             )
-            self.metrics.log_n_dicts(additional_results, key=LEARNER_RESULTS)
+            self.metrics.log_dict(
+                additional_results,
+                key=LEARNER_RESULTS,
+                # TODO (sven): For now, as we do NOT use MetricsLogger inside Learner
+                #  and LearnerGroup, we assume here that the
+                #  Learner/LearnerGroup-returned values are absolute (and thus require a
+                #  very large reduce window (take as-is) AND resetting after reduce).
+                #  Remove these settings below, once Learner/LearnerGroup themselves
+                #  use MetricsLogger.
+                window=1,
+                # reset_on_reduce=True,
+            )
 
         return self.metrics.reduce()
 
@@ -570,7 +584,7 @@ class PPO(Algorithm):
             train_batch = standardize_fields(train_batch, ["advantages"])
 
         # Perform a train step on the collected batch.
-        if self.config.enable_rl_module_and_learner:
+        if self.config._enable_new_api_stack:
             mini_batch_size_per_learner = (
                 self.config.mini_batch_size_per_learner
                 or self.config.sgd_minibatch_size
@@ -586,7 +600,7 @@ class PPO(Algorithm):
         else:
             train_results = multi_gpu_train_one_step(self, train_batch)
 
-        if self.config.enable_rl_module_and_learner:
+        if self.config._enable_new_api_stack:
             # The train results's loss keys are pids to their loss values. But we also
             # return a total_loss key at the same level as the pid keys. So we need to
             # subtract that to get the total set of pids to update.
@@ -612,7 +626,7 @@ class PPO(Algorithm):
         with self._timers[SYNCH_WORKER_WEIGHTS_TIMER]:
             if self.workers.num_remote_workers() > 0:
                 from_worker_or_learner_group = None
-                if self.config.enable_rl_module_and_learner:
+                if self.config._enable_new_api_stack:
                     # sync weights from learner_group to all rollout workers
                     from_worker_or_learner_group = self.learner_group
                 self.workers.sync_weights(
@@ -620,11 +634,11 @@ class PPO(Algorithm):
                     policies=policies_to_update,
                     global_vars=global_vars,
                 )
-            elif self.config.enable_rl_module_and_learner:
+            elif self.config._enable_new_api_stack:
                 weights = self.learner_group.get_weights()
                 self.workers.local_worker().set_weights(weights)
 
-        if self.config.enable_rl_module_and_learner:
+        if self.config._enable_new_api_stack:
             kl_dict = {}
             if self.config.use_kl_loss:
                 for pid in policies_to_update:

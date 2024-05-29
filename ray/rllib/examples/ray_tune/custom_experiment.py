@@ -43,6 +43,7 @@ from typing import Dict
 import numpy as np
 from ray import train, tune
 from ray.rllib.algorithms.ppo import PPOConfig
+from ray.rllib.env.single_agent_env_runner import SingleAgentEnvRunner
 from ray.rllib.utils.framework import try_import_torch
 
 torch, _ = try_import_torch()
@@ -57,7 +58,7 @@ def my_experiment(config: Dict):
     config = (
         PPOConfig()
         .update_from_dict(config)
-        .api_stack(enable_rl_module_and_learner=True)
+        .experimental(_enable_new_api_stack=True)
         .environment("CartPole-v1")
     )
 
@@ -93,7 +94,7 @@ def my_experiment(config: Dict):
 
     # Set the number of EnvRunners for collecting training data to 0 (local
     # worker only).
-    config.env_runners(num_env_runners=0)
+    config.env_runners(num_rollout_workers=0)
 
     eval_algo = config.build()
     # Load state from the low-lr algo into this one.
@@ -154,12 +155,12 @@ def my_experiment(config: Dict):
 if __name__ == "__main__":
     base_config = (
         PPOConfig()
-        .api_stack(
-            enable_rl_module_and_learner=True,
-            enable_env_runner_and_connector_v2=True,
-        )
+        .experimental(_enable_new_api_stack=True)
         .environment("CartPole-v1")
-        .env_runners(num_env_runners=0)
+        .env_runners(
+            num_rollout_workers=0,
+            env_runner_cls=SingleAgentEnvRunner,
+        )
     )
     # Convert to a plain dict for Tune. Note that this is usually not needed, you can
     # pass into the below Tune Tuner any instantiated RLlib AlgorithmConfig object.

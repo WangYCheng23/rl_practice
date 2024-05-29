@@ -34,9 +34,7 @@ class LearningRateSchedule:
         self._lr_schedule = None
         # Disable any scheduling behavior related to learning if Learner API is active.
         # Schedules are handled by Learner class.
-        if lr_schedule is None or self.config.get(
-            "enable_rl_module_and_learner", False
-        ):
+        if lr_schedule is None or self.config.get("_enable_new_api_stack", False):
             self.cur_lr = tf1.get_variable("lr", initializer=lr, trainable=False)
         else:
             self._lr_schedule = PiecewiseSchedule(
@@ -83,7 +81,7 @@ class EntropyCoeffSchedule:
         # Disable any scheduling behavior related to learning if Learner API is active.
         # Schedules are handled by Learner class.
         if entropy_coeff_schedule is None or (
-            self.config.get("enable_rl_module_and_learner", False)
+            self.config.get("_enable_new_api_stack", False)
         ):
             self.entropy_coeff = get_variable(
                 entropy_coeff, framework="tf", tf_name="entropy_coeff", trainable=False
@@ -216,7 +214,7 @@ class TargetNetworkMixin:
     """
 
     def __init__(self):
-        if not self.config.get("enable_rl_module_and_learner", False):
+        if not self.config.get("_enable_new_api_stack", False):
             model_vars = self.model.trainable_variables()
             target_model_vars = self.target_model.trainable_variables()
 
@@ -246,7 +244,7 @@ class TargetNetworkMixin:
     @property
     def q_func_vars(self):
         if not hasattr(self, "_q_func_vars"):
-            if self.config.get("enable_rl_module_and_learner", False):
+            if self.config.get("_enable_new_api_stack", False):
                 self._q_func_vars = self.model.variables
             else:
                 self._q_func_vars = self.model.variables()
@@ -255,7 +253,7 @@ class TargetNetworkMixin:
     @property
     def target_q_func_vars(self):
         if not hasattr(self, "_target_q_func_vars"):
-            if self.config.get("enable_rl_module_and_learner", False):
+            if self.config.get("_enable_new_api_stack", False):
                 self._target_q_func_vars = self.target_model.variables
             else:
                 self._target_q_func_vars = self.target_model.variables()
@@ -267,7 +265,7 @@ class TargetNetworkMixin:
 
     @override(TFPolicy)
     def variables(self) -> List[TensorType]:
-        if self.config.get("enable_rl_module_and_learner", False):
+        if self.config.get("_enable_new_api_stack", False):
             return self.model.variables
         else:
             return self.model.variables()
@@ -279,7 +277,7 @@ class TargetNetworkMixin:
             EagerTFPolicyV2.set_weights(self, weights)
         elif isinstance(self, EagerTFPolicy):  # Handle TF2 policies.
             EagerTFPolicy.set_weights(self, weights)
-        if not self.config.get("enable_rl_module_and_learner", False):
+        if not self.config.get("_enable_new_api_stack", False):
             self.update_target(self.config.get("tau", 1.0))
 
 

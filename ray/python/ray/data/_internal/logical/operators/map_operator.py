@@ -1,6 +1,6 @@
 import inspect
 import logging
-from typing import Any, Callable, Dict, Iterable, Optional, Union
+from typing import Any, Dict, Iterable, Optional, Union
 
 from ray.data._internal.compute import ComputeStrategy, TaskPoolStrategy
 from ray.data._internal.logical.interfaces import LogicalOperator
@@ -25,7 +25,6 @@ class AbstractMap(AbstractOneToOne):
         *,
         min_rows_per_bundled_input: Optional[int] = None,
         ray_remote_args: Optional[Dict[str, Any]] = None,
-        ray_remote_args_fn: Optional[Callable[[], Dict[str, Any]]] = None,
     ):
         """
         Args:
@@ -36,17 +35,10 @@ class AbstractMap(AbstractOneToOne):
             min_rows_per_bundled_input: The target number of rows to pass to
                 ``MapOperator._add_bundled_input()``.
             ray_remote_args: Args to provide to ray.remote.
-            ray_remote_args_fn: A function that returns a dictionary of remote args
-                passed to each map worker. The purpose of this argument is to generate
-                dynamic arguments for each actor/task, and will be called each time
-                prior to initializing the worker. Args returned from this dict will
-                always override the args in ``ray_remote_args``. Note: this is an
-                advanced, experimental feature.
         """
         super().__init__(name, input_op, num_outputs)
         self._min_rows_per_bundled_input = min_rows_per_bundled_input
         self._ray_remote_args = ray_remote_args or {}
-        self._ray_remote_args_fn = ray_remote_args_fn
 
 
 class AbstractUDFMap(AbstractMap):
@@ -65,7 +57,6 @@ class AbstractUDFMap(AbstractMap):
         fn_constructor_kwargs: Optional[Dict[str, Any]] = None,
         min_rows_per_bundled_input: Optional[int] = None,
         compute: Optional[Union[str, ComputeStrategy]] = None,
-        ray_remote_args_fn: Optional[Callable[[], Dict[str, Any]]] = None,
         ray_remote_args: Optional[Dict[str, Any]] = None,
     ):
         """
@@ -85,12 +76,6 @@ class AbstractUDFMap(AbstractMap):
                 ``MapOperator._add_bundled_input()``.
             compute: The compute strategy, either ``"tasks"`` (default) to use Ray
                 tasks, or ``"actors"`` to use an autoscaling actor pool.
-            ray_remote_args_fn: A function that returns a dictionary of remote args
-                passed to each map worker. The purpose of this argument is to generate
-                dynamic arguments for each actor/task, and will be called each time
-                prior to initializing the worker. Args returned from this dict will
-                always override the args in ``ray_remote_args``. Note: this is an
-                advanced, experimental feature.
             ray_remote_args: Args to provide to ray.remote.
         """
         name = self._get_operator_name(name, fn)
@@ -106,7 +91,6 @@ class AbstractUDFMap(AbstractMap):
         self._fn_constructor_args = fn_constructor_args
         self._fn_constructor_kwargs = fn_constructor_kwargs
         self._compute = compute or TaskPoolStrategy()
-        self._ray_remote_args_fn = ray_remote_args_fn
 
     def _get_operator_name(self, op_name: str, fn: UserDefinedFunction):
         """Gets the Operator name including the map `fn` UDF name."""
@@ -151,7 +135,6 @@ class MapBatches(AbstractUDFMap):
         fn_constructor_kwargs: Optional[Dict[str, Any]] = None,
         min_rows_per_bundled_input: Optional[int] = None,
         compute: Optional[Union[str, ComputeStrategy]] = None,
-        ray_remote_args_fn: Optional[Callable[[], Dict[str, Any]]] = None,
         ray_remote_args: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
@@ -164,7 +147,6 @@ class MapBatches(AbstractUDFMap):
             fn_constructor_kwargs=fn_constructor_kwargs,
             min_rows_per_bundled_input=min_rows_per_bundled_input,
             compute=compute,
-            ray_remote_args_fn=ray_remote_args_fn,
             ray_remote_args=ray_remote_args,
         )
         self._batch_size = batch_size
@@ -188,7 +170,6 @@ class MapRows(AbstractUDFMap):
         fn_constructor_args: Optional[Iterable[Any]] = None,
         fn_constructor_kwargs: Optional[Dict[str, Any]] = None,
         compute: Optional[Union[str, ComputeStrategy]] = None,
-        ray_remote_args_fn: Optional[Callable[[], Dict[str, Any]]] = None,
         ray_remote_args: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
@@ -200,7 +181,6 @@ class MapRows(AbstractUDFMap):
             fn_constructor_args=fn_constructor_args,
             fn_constructor_kwargs=fn_constructor_kwargs,
             compute=compute,
-            ray_remote_args_fn=ray_remote_args_fn,
             ray_remote_args=ray_remote_args,
         )
 
@@ -217,7 +197,6 @@ class Filter(AbstractUDFMap):
         input_op: LogicalOperator,
         fn: UserDefinedFunction,
         compute: Optional[Union[str, ComputeStrategy]] = None,
-        ray_remote_args_fn: Optional[Callable[[], Dict[str, Any]]] = None,
         ray_remote_args: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
@@ -225,7 +204,6 @@ class Filter(AbstractUDFMap):
             input_op,
             fn,
             compute=compute,
-            ray_remote_args_fn=ray_remote_args_fn,
             ray_remote_args=ray_remote_args,
         )
 
@@ -246,7 +224,6 @@ class FlatMap(AbstractUDFMap):
         fn_constructor_args: Optional[Iterable[Any]] = None,
         fn_constructor_kwargs: Optional[Dict[str, Any]] = None,
         compute: Optional[Union[str, ComputeStrategy]] = None,
-        ray_remote_args_fn: Optional[Callable[[], Dict[str, Any]]] = None,
         ray_remote_args: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
@@ -258,7 +235,6 @@ class FlatMap(AbstractUDFMap):
             fn_constructor_args=fn_constructor_args,
             fn_constructor_kwargs=fn_constructor_kwargs,
             compute=compute,
-            ray_remote_args_fn=ray_remote_args_fn,
             ray_remote_args=ray_remote_args,
         )
 

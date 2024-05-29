@@ -36,6 +36,7 @@ import numpy as np
 import ray
 from ray.rllib.core.rl_module.marl_module import MultiAgentRLModuleSpec
 from ray.rllib.core.rl_module.rl_module import SingleAgentRLModuleSpec
+from ray.rllib.env.multi_agent_env_runner import MultiAgentEnvRunner
 from ray.rllib.env.utils import try_import_pyspiel, try_import_open_spiel
 from ray.rllib.env.wrappers.open_spiel import OpenSpielEnv
 from ray.rllib.examples.multi_agent.utils import (
@@ -159,10 +160,7 @@ if __name__ == "__main__":
         get_trainable_cls(args.algo)
         .get_default_config()
         # Use new API stack ...
-        .api_stack(
-            enable_rl_module_and_learner=args.enable_new_api_stack,
-            enable_env_runner_and_connector_v2=args.enable_new_api_stack,
-        )
+        .experimental(_enable_new_api_stack=args.enable_new_api_stack)
         .environment("open_spiel_env")
         .framework(args.framework)
         # Set up the main piece in this experiment: The league-bases self-play
@@ -177,8 +175,13 @@ if __name__ == "__main__":
             )
         )
         .env_runners(
-            num_env_runners=args.num_env_runners,
-            num_envs_per_env_runner=1 if args.enable_new_api_stack else 5,
+            num_rollout_workers=args.num_env_runners,
+            num_envs_per_worker=1 if args.enable_new_api_stack else 5,
+            # Set up the correct env-runner to use depending on
+            # old-stack/new-stack and multi-agent settings.
+            env_runner_cls=(
+                None if not args.enable_new_api_stack else MultiAgentEnvRunner
+            ),
         )
         .resources(
             num_learner_workers=args.num_gpus,
@@ -252,7 +255,7 @@ if __name__ == "__main__":
                     action = ask_user_for_action(time_step)
                 else:
                     obs = np.array(time_step.observations["info_state"][player_id])
-                    if config.enable_env_runner_and_connector_v2:
+                    if config.uses_new_env_runners:
                         action = algo.workers.local_worker().module.forward_inference(
                             {"obs": obs}
                         )

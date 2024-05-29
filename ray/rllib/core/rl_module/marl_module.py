@@ -15,6 +15,7 @@ from typing import (
 )
 
 from ray.rllib.core.models.specs.typing import SpecType
+from ray.rllib.policy.sample_batch import MultiAgentBatch
 from ray.rllib.core.rl_module.rl_module import (
     RLModule,
     RLMODULE_METADATA_FILE_NAME,
@@ -22,7 +23,7 @@ from ray.rllib.core.rl_module.rl_module import (
     SingleAgentRLModuleSpec,
 )
 
-from ray.rllib.policy.sample_batch import MultiAgentBatch
+# TODO (Kourosh): change this to module_id later to enforce consistency
 from ray.rllib.utils.annotations import (
     ExperimentalAPI,
     override,
@@ -33,6 +34,11 @@ from ray.rllib.utils.policy import validate_policy_id
 from ray.rllib.utils.serialization import serialize_type, deserialize_type
 from ray.rllib.utils.typing import ModuleID, T
 from ray.util.annotations import PublicAPI
+
+
+# TODO (sven): This will replace all occurrences of DEFAULT_POLICY_ID on the new API
+#  stack.
+DEFAULT_MODULE_ID = "default_policy"
 
 
 @PublicAPI(stability="alpha")

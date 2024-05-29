@@ -73,7 +73,7 @@ class BCConfig(MARWILConfig):
         # not important for behavioral cloning.
         self.postprocess_inputs = False
         # Set RLModule as default.
-        self.api_stack(enable_rl_module_and_learner=True)
+        self.experimental(_enable_new_api_stack=True)
         # __sphinx_doc_end__
         # fmt: on
 
@@ -137,7 +137,7 @@ class BC(MARWIL):
 
     @override(MARWIL)
     def training_step(self) -> ResultDict:
-        if not self.config.enable_rl_module_and_learner:
+        if not self.config._enable_new_api_stack:
             # Using ModelV2.
             return super().training_step()
         else:

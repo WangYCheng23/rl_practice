@@ -141,9 +141,7 @@ class PPOTorchRLModule(TorchRLModule, PPORLModule):
         # Note, these keys are only known to the learner module. Furthermore,
         # we want this to be run once during setup and not for each worker.
         self._inference_only_state_dict_keys["unexpected_keys"] = [
-            name
-            for name in state_dict
-            if "vf" in name or name.startswith("encoder.critic_encoder")
+            name for name in state_dict if "vf" in name or "critic_encoder" in name
         ]
         # Do we use a separate encoder for the actor and critic?
         # if not self.config.model_config_dict.get("vf_share_layers", True):
@@ -155,7 +153,7 @@ class PPOTorchRLModule(TorchRLModule, PPORLModule):
             self._inference_only_state_dict_keys["expected_keys"] = {
                 name: name.replace("actor_encoder", "encoder")
                 for name in state_dict
-                if name.startswith("encoder.actor_encoder")
+                if "actor_encoder" in name
             }
 
     @override(TorchRLModule)

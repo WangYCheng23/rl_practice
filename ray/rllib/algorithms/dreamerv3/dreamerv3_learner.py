@@ -55,13 +55,15 @@ class DreamerV3Learner(Learner):
         module_id: ModuleID,
         config: DreamerV3Config,
         timestep: int,
-    ) -> None:
+    ) -> Dict[str, Any]:
         """Updates the EMA weights of the critic network."""
 
         # Call the base class' method.
-        super().additional_update_for_module(
+        results = super().additional_update_for_module(
             module_id=module_id, config=config, timestep=timestep
         )
 
         # Update EMA weights of the critic.
         self.module[module_id].critic.update_ema()
+
+        return results
